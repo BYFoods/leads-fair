@@ -13,10 +13,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
         with: { version: latest }
-      - run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" --use-api
+      # Bundles each function on the runner (Docker) and uploads it; one at a time so an error names the function.
+      - run: |
+          set -e
+          for f in read-card send-email track odoo-sync reminders; do
+            echo "::group::Deploying $f"
+            supabase functions deploy "$f" --project-ref "$SUPABASE_PROJECT_REF" --debug
+            echo "::endgroup::"
+          done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
