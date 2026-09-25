@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fair Leads</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-screen">
+  <header class="bg-ink text-white">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div>
+        <h1 class="text-lg font-semibold tracking-tight">Fair Leads</h1>
+        <p id="who" class="text-xs opacity-75"></p>
+      </div>
+      <div id="hdr-btns" hidden><div class="flex gap-2 flex-wrap justify-end">
+        <button id="btn-templates" class="btn btn-ghost">Settings</button>
+        <button id="btn-export" class="btn btn-ghost">Export CSV</button>
+        <button id="btn-out" class="btn btn-ghost">Sign out</button>
+      </div></div>
+    </div>
+  </header>
+
+  <section id="login" class="max-w-sm mx-auto px-4 py-10">
+    <form id="login-form" class="card space-y-3">
+      <h2 class="text-base font-semibold">Sign in</h2>
+      <label class="field">Email<input id="l-email" type="email" class="input" required autocomplete="username"></label>
+      <label class="field">Password<input id="l-pass" type="password" class="input" required autocomplete="current-password"></label>
+      <button class="btn btn-primary w-full">Sign in</button>
+      <button type="button" id="btn-forgot" class="btn btn-quiet w-full">Forgot / set password</button>
+      <p id="login-msg" class="text-sm text-muted"></p>
+    </form>
+  </section>
+
+  <section id="set-pass" hidden class="max-w-sm mx-auto px-4 py-10">
+    <form id="pass-form" class="card space-y-3">
+      <h2 class="text-base font-semibold">Choose your password</h2>
+      <label class="field">New password<input id="p-new" type="password" minlength="8" class="input" required autocomplete="new-password"></label>
+      <button class="btn btn-primary w-full">Save password</button>
+    </form>
+  </section>
+
+  <main id="app" hidden class="max-w-6xl mx-auto px-4 py-5 space-y-5">
+    <section class="card">
+      <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <h2 id="form-title" class="text-base font-semibold">Add a lead</h2>
+        <div class="flex gap-2">
+          <button type="button" id="btn-scan" class="btn btn-primary btn-sm">📷 Scan card</button>
+          <button type="button" id="btn-back" class="btn btn-quiet btn-sm hidden">+ Back side</button>
+        </div>
+        <input type="file" id="card-input" accept="image/*" capture="environment" hidden>
+      </div>
+      <div id="scan-box" class="hidden mb-3 space-y-2">
+        <div id="scan-thumbs" class="flex gap-2"></div>
+        <p id="scan-msg" class="text-sm text-muted"></p>
+      </div>
+      <form id="lead-form" class="grid grid-cols-1 sm:grid-cols-2 gap-3" autocomplete="off">
+        <label class="field">Name *<input id="f-name" class="input" required></label>
+        <label class="field">Company<input id="f-company" class="input"></label>
+        <label class="field">Job title<input id="f-title" class="input"></label>
+        <label class="field">Email<input id="f-email" type="email" inputmode="email" class="input"></label>
+        <label class="field">Phone<input id="f-phone" type="tel" inputmode="tel" class="input"></label>
+        <label class="field">Website<input id="f-website" class="input" inputmode="url"></label>
+        <label class="field sm:col-span-2">Address<input id="f-address" class="input"></label>
+        <label class="field">Country<input id="f-country" list="countries" class="input" placeholder="Start typing…"></label>
+        <label class="field">Follow-up language
+          <select id="f-lang" class="input"></select>
+        </label>
+        <label class="field">Fair / event<input id="f-event" class="input" placeholder="e.g. Gulfood 2027"></label>
+        <label class="field">Notes<input id="f-notes" class="input" placeholder="Interested in…"></label>
+        <datalist id="countries"></datalist>
+        <label id="send-row" class="sm:col-span-2 flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" id="f-send" class="w-4 h-4" checked> Send the follow-up email right after saving
+        </label>
+        <div class="sm:col-span-2 flex gap-2">
+          <button id="f-submit" class="btn btn-primary flex-1 sm:flex-none">Save lead</button>
+          <button type="button" id="f-cancel" class="btn btn-quiet hidden">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <div id="stats" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3"></div>
+      <div class="flex flex-col sm:flex-row gap-2 mb-3">
+        <input id="search" type="search" class="input flex-1" placeholder="Search name, company, email, country, fair…">
+        <select id="f-owner" class="input sm:w-40">
+          <option value="">Whole team</option>
+          <option value="me">Only mine</option>
+        </select>
+        <select id="f-status" class="input sm:w-44">
+          <option value="">Any status</option>
+          <option value="unsent">Not sent</option>
+          <option value="waiting">Sent, no reply</option>
+          <option value="opened">Opened</option>
+          <option value="replied">Replied</option>
+          <option value="error">Problem</option>
+        </select>
+        <select id="filter" class="input sm:w-40"></select>
+      </div>
+      <p id="count" class="text-sm text-muted mb-2"></p>
+      <table class="leads w-full">
+        <thead>
+          <tr><th>Name</th><th>Contact</th><th>Country</th><th>Follow-up</th><th>Added</th><th></th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <dialog id="dlg">
+    <form method="dialog" class="dlg-head">
+      <h2 class="text-base font-semibold">Settings and email templates</h2>
+      <button class="btn btn-quiet" aria-label="Close">Close</button>
+    </form>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="field">Your name<input id="s-sender" class="input"></label>
+        <label class="field">Your company<input id="s-company" class="input"></label>
+        <label class="field">Brochure link<input id="s-link" type="url" class="input" placeholder="https://…"></label>
+        <label class="field">Current fair / event<input id="s-event" class="input" placeholder="e.g. Gulfood 2027"></label>
+        <label class="field">Reminder if no reply after (days)<input id="s-days" type="number" min="0" max="60" class="input"></label>
+        <label class="field">Maximum reminders per lead<input id="s-max" type="number" min="0" max="5" class="input"></label>
+        <label class="field sm:col-span-2">If automatic sending is not available, open emails in
+          <select id="s-mail" class="input">
+            <option value="default">My default mail app</option>
+            <option value="outlook">Outlook on the web (work or school)</option>
+            <option value="outlook_live">Outlook.com (personal)</option>
+          </select>
+        </label>
+      </div>
+      <p class="text-xs text-muted">Emails are sent from your own Microsoft 365 mailbox (<span id="s-from"></span>) and appear in your Sent Items. Set "days" to 0 to turn automatic reminders off.</p>
+      <div class="flex gap-2" id="kinds">
+        <button type="button" class="kind" data-kind="templates">First email</button>
+        <button type="button" class="kind" data-kind="reminders">Reminder</button>
+      </div>
+      <div id="tabs" class="flex gap-1 border-b border-line overflow-x-auto"></div>
+      <label class="field">Subject<input id="t-subject" class="input"></label>
+      <label class="field">Message
+        <textarea id="t-body" rows="10" class="input"></textarea>
+      </label>
+      <p class="text-xs text-muted">Placeholders: {{name}}, {{first_name}}, {{company}}, {{event}}, {{brochure_link}}, {{sender}}, {{my_company}}. A reminder is sent as "Re: " + the first email's subject.</p>
+      <div class="flex gap-2">
+        <button id="t-save" class="btn btn-primary">Save</button>
+        <button id="t-reset" class="btn btn-quiet">Restore default for this language</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

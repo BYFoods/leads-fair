@@ -1,0 +1,20 @@
+# Only the function settings are used; deploy with `supabase functions deploy` (see README).
+project_id = "zmkgmebzeagtdxhdiyuo"
+
+# Every function checks the caller itself (signed-in user, or the cron secret), so the gateway
+# check is off. This also keeps them working with Supabase's new API keys / JWT signing keys.
+# track is opened from inside emails by the recipient, so it must be public anyway.
+[functions.read-card]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.odoo-sync]
+verify_jwt = false
+
+[functions.track]
+verify_jwt = false
+
+[functions.reminders]
+verify_jwt = false
