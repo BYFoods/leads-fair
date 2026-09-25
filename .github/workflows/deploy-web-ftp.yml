@@ -1,0 +1,24 @@
+# Publishes the app (web/ folder) to the company web server by FTP/FTPS on every push to main.
+# Turned on only when the repository VARIABLE FTP_SERVER exists (Settings > Secrets and variables > Actions > Variables):
+#   variables: FTP_SERVER (e.g. ftp.byfoodsglobal.com), FTP_DIR (e.g. /public_html/leads/  — must end with /)
+#   secrets:   FTP_USERNAME, FTP_PASSWORD   (ideally an FTP account limited to that folder)
+name: Deploy app to web server
+on:
+  push:
+    branches: [main]
+    paths: ['web/**']
+  workflow_dispatch:
+jobs:
+  deploy:
+    if: ${{ vars.FTP_SERVER != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ vars.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./web/
+          server-dir: ${{ vars.FTP_DIR }}

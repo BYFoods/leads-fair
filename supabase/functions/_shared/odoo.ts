@@ -65,6 +65,7 @@ export async function syncLead(lead: Lead) {
     }
     const note = [
       lead.event && `Met at: ${lead.event}`,
+      lead.source && lead.source !== 'manual' && `Captured from: ${lead.source === 'qr' ? 'QR e-contact' : lead.source}`,
       owner && `Scanned by: ${owner.full_name || owner.email}`,
       lead.notes && `Notes: ${lead.notes}`,
     ].filter(Boolean).map(l => `<p>${esc(String(l))}</p>`).join('');

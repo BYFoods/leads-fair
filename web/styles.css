@@ -66,3 +66,5 @@ dialog::backdrop { background:rgba(20,33,61,.55); }
 @keyframes spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration:2.5s; } }
 [hidden] { display:none !important; }
+.qr-dlg { width:min(480px, 94vw); }
+.qr-video { width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; background:#000; }

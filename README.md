@@ -25,7 +25,21 @@ A app funciona por fases: depois do passo 3 já tem a nova leitura de cartões e
    - `SUPABASE_ACCESS_TOKEN` — em supabase.com/dashboard/account/tokens (conta com acesso ao projeto)
    - `SUPABASE_PROJECT_REF` — `zmkgmebzeagtdxhdiyuo`
 
-## 2. Netlify
+## 2. Alojamento da app
+A app é só um conjunto de ficheiros estáticos (pasta `web/`), por isso pode ficar **no servidor do website da empresa** (recomendado) ou no Netlify. Os dados continuam no Supabase em qualquer dos casos.
+
+### Opção recomendada — servidor da empresa (ex.: `https://leads.byfoodsglobal.com`)
+1. No painel do alojamento (cPanel/Plesk…): criar o subdomínio `leads` com **HTTPS** (Let's Encrypt). HTTPS é obrigatório — sem ele o telemóvel não deixa usar a câmara.
+2. Criar uma conta FTP limitada à pasta desse subdomínio.
+3. No GitHub → *Settings → Secrets and variables → Actions*:
+   - **Variables**: `FTP_SERVER` (ex.: `ftp.byfoodsglobal.com`), `FTP_DIR` (pasta do subdomínio, a terminar em `/`, ex.: `/public_html/leads/`)
+   - **Secrets**: `FTP_USERNAME`, `FTP_PASSWORD`
+4. Cada `git push` publica automaticamente (ação *Deploy app to web server*). Sem GitHub: basta copiar o conteúdo de `web/` por FTP.
+5. Supabase → Authentication → URL Configuration: *Site URL* = `https://leads.byfoodsglobal.com`.
+
+O `web/.htaccess` (servidores Apache) força HTTPS. Se o servidor for FTP simples sem FTPS, mudar `protocol: ftps` para `ftp` no ficheiro `.github/workflows/deploy-web-ftp.yml`.
+
+### Alternativa — Netlify
 Duas opções:
 - **A (manter o endereço atual)** — quem é dono do site `crm-miguel-byfoods` abre *Site configuration → Build & deploy → Link repository*, escolhe o repositório, branch `main`, *publish directory* `web`, build command vazio. Deve também convidar os colegas (*Team → Members*, o plano grátis permite).
 - **B (novo site na conta da empresa)** — *Add new site → Import from Git* → o repositório. O `netlify.toml` já diz para publicar `web`.
@@ -35,7 +49,8 @@ Depois disto, cada `git push` publica a app automaticamente.
 ## 3. Supabase — base de dados e utilizadores
 1. **SQL Editor → New query** → colar `supabase/migrations/002_team_email_odoo.sql` → *Run*.
 2. **Authentication → Sign In / Providers**: desligar *Allow new users to sign up* (só entra quem for convidado — importante, porque a equipa vê todos os leads).
-3. **Authentication → URL Configuration**: *Site URL* = endereço da app no Netlify.
+3. **Authentication → URL Configuration**: *Site URL* = endereço da app (servidor da empresa ou Netlify).
+   Depois correr também `supabase/migrations/004_source.sql` (regista se o lead veio de cartão, badge, QR ou manual).
 4. **Authentication → Users → Invite user**: convidar cada comercial **com o email Microsoft 365 dele** (ex.: `nc@byfoodsglobal.com`). Recebem um link e escolhem a password na app.
 
 ## 4. Funções no servidor
@@ -75,6 +90,9 @@ Usa a API JSON-RPC (`/jsonrpc`), disponível no Odoo 14 a 19.
 
 ## Uso diário
 - **Settings**: o seu nome, brochura, feira atual, dias para lembrete, textos do primeiro email e do lembrete em 5 línguas (EN/FR/ES/DE/PT).
-- **Scan card** → fotografar → confirmar campos → (+ Back side se houver verso) → *Save lead*. Com a caixa "Send the follow-up email" marcada, o email sai logo.
+- **📷 Card** → fotografar → confirmar campos → (+ Back side se houver verso) → *Save lead*. Com a caixa "Send the follow-up email" marcada, o email sai logo.
+- **🪪 Badge** → fotografar o badge da feira: a IA lê nome, empresa, cargo e país impressos; se o QR do badge tiver contactos (vCard), esses dados têm prioridade. Muitos badges só têm um código interno da organização — fica nas notas.
+- **▦ QR / e-contact** → abre a câmara e lê em direto QR codes de cartões digitais (vCard, MeCard), de ecrãs de telemóvel ou de badges. Se o QR for apenas um link (ex.: Linktree, perfil), fica nas notas.
+- Os cartões em papel com QR também são aproveitados: os dados do QR são exatos e ganham ao que a IA lê.
 - A lista mostra toda a equipa, quem scanou, e o estado: Not sent → Sent → Opened ×n → Brochure opened → Replied. Passe o rato no estado para ver datas.
 - Filtros: só os meus, por estado, por língua. *Export CSV* exporta o que está filtrado.

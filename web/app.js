@@ -111,6 +111,7 @@ $('#lead-form').addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(FIELDS.map(k => [k, $('#f-' + k).value.trim()]));
   data.lang = $('#f-lang').value;
+  if (!editId) data.source = leadSource;
   const wantsSend = !editId && $('#f-send').checked && data.email;
   const btn = $('#f-submit'); btn.disabled = true;
   const saved = editId
@@ -127,8 +128,8 @@ $('#lead-form').addEventListener('submit', async e => {
 function resetForm() {
   editId = null; $('#lead-form').reset(); $('#f-lang').value = 'en';
   $('#f-event').value = settings().event || ''; $('#f-send').checked = true; $('#send-row').hidden = false;
-  document.querySelectorAll('#lead-form [data-auto]').forEach(el => delete el.dataset.auto);
-  scans = []; $('#scan-box').classList.add('hidden'); $('#btn-back').classList.add('hidden'); $('#scan-thumbs').innerHTML = '';
+  document.querySelectorAll('#lead-form [data-auto], #lead-form [data-qr]').forEach(el => { delete el.dataset.auto; delete el.dataset.qr; });
+  leadSource = 'manual'; scanCodes = []; scans = []; $('#scan-box').classList.add('hidden'); $('#btn-back').classList.add('hidden'); $('#scan-thumbs').innerHTML = '';
   $('#form-title').textContent = 'Add a lead'; $('#f-submit').textContent = 'Save lead'; $('#f-cancel').classList.add('hidden');
 }
 $('#f-cancel').addEventListener('click', resetForm);
@@ -307,9 +308,9 @@ $('#btn-export').addEventListener('click', () => {
   if (!rows.length) { toast('No leads to export.'); return; }
   const iso = t => (t ? new Date(t).toISOString() : '');
   const head = ['Name', 'Company', 'Job title', 'Email', 'Phone', 'Website', 'Address', 'Country', 'Language', 'Fair', 'Notes',
-    'Added', 'Added by', 'Email sent', 'Opens', 'Brochure clicks', 'Reminders', 'Replied', 'Status', 'Odoo ID'];
+    'Added', 'Added by', 'Captured from', 'Email sent', 'Opens', 'Brochure clicks', 'Reminders', 'Replied', 'Status', 'Odoo ID'];
   const data = rows.map(l => [l.name, l.company, l.title, l.email, l.phone, l.website, l.address, l.country, LANGS[l.lang], l.event, l.notes,
-    iso(l.created_at), personName(l.user_id), iso(l.sent_at), l.open_count, l.click_count, l.reminder_count, iso(l.replied_at),
+    iso(l.created_at), personName(l.user_id), l.source || '', iso(l.sent_at), l.open_count, l.click_count, l.reminder_count, iso(l.replied_at),
     status(l).label, l.odoo_lead_id || '']);
   const csv = '﻿' + [head, ...data].map(r => r.map(csvCell).join(',')).join('\r\n'); // BOM keeps accents intact in Excel
   const a = document.createElement('a');
@@ -361,24 +362,29 @@ $('#btn-out').addEventListener('click', () => sb.auth.signOut());
 document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !$('#app').hidden) loadLeads(); });
 setInterval(() => { if (!document.hidden && me && !$('#app').hidden && !dlg.open) loadLeads(); }, 60000); // opens/replies update
 
-/* ---------- Business card reading (AI) ---------- */
-let scans = []; // base64 JPEGs: front, back
+/* ---------- Scanning: business cards, badges (photo + AI) and QR e-contacts ---------- */
+let scans = [], scanMode = 'card', scanCodes = [], leadSource = 'manual';
 const AUTO = ['name', 'company', 'title', 'email', 'phone', 'website', 'address', 'country', 'notes'];
 AUTO.forEach(k => $('#f-' + k).addEventListener('input', e => { if (e.isTrusted) delete e.target.dataset.auto; })); // your edits are never overwritten
-$('#btn-scan').addEventListener('click', () => { scans = []; $('#card-input').click(); });
+function startPhoto(mode) { scanMode = mode; scans = []; scanCodes = []; $('#card-input').click(); }
+$('#btn-scan').addEventListener('click', () => startPhoto('card'));
+$('#btn-badge').addEventListener('click', () => startPhoto('badge'));
 $('#btn-back').addEventListener('click', () => $('#card-input').click());
 $('#card-input').addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
   if (!scans.length) resetScanFields();
   $('#scan-box').classList.remove('hidden');
+  let canvas;
   try {
-    const { b64, url } = await prepImage(file);
-    scans.push(b64);
-    $('#scan-thumbs').insertAdjacentHTML('beforeend', `<img src="${url}" class="thumb" alt="Card ${scans.length === 1 ? 'front' : 'back'}">`);
+    const img = await prepImage(file); canvas = img.canvas;
+    scans.push(img.b64);
+    $('#scan-thumbs').insertAdjacentHTML('beforeend', `<img src="${img.url}" class="thumb" alt="Photo ${scans.length}">`);
   } catch {
     setMsg('This photo format cannot be opened here. Take the photo with the camera or use a JPG/PNG.', 'err'); return;
   }
-  readCard();
+  const code = await decodeFrom(canvas).catch(() => null); // many cards and badges carry a QR code
+  if (code) scanCodes.push(code);
+  readPhoto();
 });
 function resetScanFields() {
   $('#scan-thumbs').innerHTML = '';
@@ -390,31 +396,118 @@ async function prepImage(file) { // resize to max 1600px JPEG: faster upload, sa
   const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
   const url = c.toDataURL('image/jpeg', 0.85);
-  return { url, b64: url.split(',')[1] };
+  return { url, b64: url.split(',')[1], canvas: c };
 }
 function setMsg(text, kind) { // kind: 'busy' | 'ok' | 'err'
   const m = $('#scan-msg');
   m.className = kind === 'busy' ? 'text-sm text-muted' : kind === 'err' ? 'err' : 'sent';
   m.innerHTML = (kind === 'busy' ? '<span class="spin"></span>' : '') + esc(text);
 }
-async function readCard() {
-  const btns = [$('#btn-scan'), $('#btn-back')]; btns.forEach(b => (b.disabled = true));
-  setMsg(scans.length > 1 ? 'Reading both sides…' : 'Reading card…', 'busy');
-  try {
-    const r = await callFn('read-card', { images: scans });
-    if (r.error) throw new Error(r.error);
-    const card = r.data || {};
-    if (card.other_phone) card.notes = [card.notes, 'Tel: ' + card.other_phone].filter(Boolean).join(' · ');
-    let n = 0;
-    for (const k of AUTO) {
-      const el = $('#f-' + k);
-      if (card[k] && (!el.value || el.dataset.auto)) { el.value = card[k]; el.dataset.auto = '1'; n++; }
+function fillFields(card, force = false) { // returns how many fields were filled
+  if (card.other_phone) card.notes = [card.notes, 'Tel: ' + card.other_phone].filter(Boolean).join(' · ');
+  let n = 0;
+  for (const k of AUTO) {
+    const el = $('#f-' + k);
+    if (card[k] && (!el.value || el.dataset.auto) && (force || !el.dataset.qr)) {
+      el.value = card[k]; el.dataset.auto = '1'; if (force) el.dataset.qr = '1'; n++;
     }
-    const l = langFor($('#f-country').value); if (l) $('#f-lang').value = l;
-    if (n) { setMsg(`${n} fields filled in. Please check them before saving.`, 'ok'); toast(`${n} fields read from the card`); }
+  }
+  const l = langFor($('#f-country').value); if (l) $('#f-lang').value = l;
+  return n;
+}
+const codeNote = parsed => (parsed.kind === 'link' ? 'QR link: ' : 'Badge code: ') + parsed.raw.slice(0, 200);
+async function readPhoto() {
+  const btns = ['#btn-scan', '#btn-badge', '#btn-qr', '#btn-back'].map($); btns.forEach(b => (b.disabled = true));
+  const what = scanMode === 'badge' ? 'badge' : 'card';
+  leadSource = scanMode;
+  // 1) contact data from a QR code on the photo: exact, so it wins over what the AI reads
+  let n = 0, codeText = '';
+  document.querySelectorAll('#lead-form [data-qr]').forEach(el => delete el.dataset.qr);
+  for (const raw of scanCodes) {
+    const p = parseCode(raw);
+    if (p.contact) n += fillFields(p.contact, true);
+    else codeText = raw;
+  }
+  // 2) AI reads the printed text
+  setMsg(scans.length > 1 ? 'Reading both sides…' : `Reading ${what}…`, 'busy');
+  try {
+    const r = await callFn('read-card', { images: scans, mode: scanMode, code_text: codeText || undefined });
+    if (r.error) throw new Error(r.error);
+    n += fillFields(r.data || {});
+    if (codeText) { const el = $('#f-notes'); if (!el.value.includes(codeText.slice(0, 40))) el.value = [el.value, codeNote(parseCode(codeText))].filter(Boolean).join(' · '); }
+    if (n) { setMsg(`${n} fields filled in${scanCodes.length ? ' (QR code read too)' : ''}. Please check them before saving.`, 'ok'); toast(`${n} fields read from the ${what}`); }
     else setMsg('No contact details found. Try a closer, straighter photo in good light.', 'err');
-    $('#btn-back').classList.toggle('hidden', scans.length > 1);
+    $('#btn-back').classList.toggle('hidden', scanMode !== 'card' || scans.length > 1);
   } catch (err) {
-    setMsg('Could not read the card: ' + err.message, 'err');
+    setMsg(n ? `${n} fields filled from the QR code. The printed text could not be read: ${err.message}` : 'Could not read the ' + what + ': ' + err.message, n ? 'ok' : 'err');
   } finally { btns.forEach(b => (b.disabled = false)); }
+}
+
+/* QR / barcode decoding: the phone's built-in reader when available, otherwise jsQR */
+let jsQRLoading = null;
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  return jsQRLoading ||= new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload = ok; s.onerror = () => { jsQRLoading = null; fail(new Error('Could not load the QR reader')); }; document.head.appendChild(s);
+  });
+}
+let detector;
+async function decodeFrom(source) { // source: canvas or video; returns the text or null
+  if ('BarcodeDetector' in window) {
+    try {
+      detector ||= new BarcodeDetector({ formats: (await BarcodeDetector.getSupportedFormats())
+        .filter(f => ['qr_code', 'pdf417', 'aztec', 'data_matrix', 'code_128', 'code_39'].includes(f)) });
+      const found = await detector.detect(source);
+      if (found.length) return found[0].rawValue;
+      if (source instanceof HTMLCanvasElement) return null;
+    } catch { /* fall back to jsQR */ }
+  }
+  await loadJsQR();
+  let c = source;
+  if (source instanceof HTMLVideoElement) {
+    c = document.createElement('canvas'); c.width = source.videoWidth; c.height = source.videoHeight;
+    if (!c.width) return null;
+    c.getContext('2d').drawImage(source, 0, 0);
+  }
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+  const r = window.jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' });
+  return r ? r.data : null;
+}
+
+/* Live QR scanning with the camera (e-contacts on a phone screen, badge QR codes) */
+const qrDlg = $('#qr-dlg'); let qrStream = null, qrLoop = 0;
+$('#btn-qr').addEventListener('click', async () => {
+  if (!navigator.mediaDevices?.getUserMedia) { toast('The camera is not available in this browser.'); return; }
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false });
+  } catch { toast('Allow camera access to scan QR codes.'); return; }
+  const v = $('#qr-video'); v.srcObject = qrStream; await v.play().catch(() => {});
+  $('#qr-msg').textContent = 'Point the camera at the QR code.';
+  qrDlg.showModal();
+  const tick = async () => {
+    if (!qrStream) return;
+    const text = await decodeFrom(v).catch(() => null);
+    if (text) { onQr(text); return; }
+    qrLoop = setTimeout(tick, 250);
+  };
+  tick();
+});
+function stopQr() { clearTimeout(qrLoop); qrStream?.getTracks().forEach(t => t.stop()); qrStream = null; if (qrDlg.open) qrDlg.close(); }
+qrDlg.addEventListener('close', stopQr);
+$('#qr-cancel').addEventListener('click', stopQr);
+function onQr(text) {
+  stopQr(); if (navigator.vibrate) navigator.vibrate(60);
+  const p = parseCode(text);
+  $('#scan-box').classList.remove('hidden'); $('#scan-thumbs').innerHTML = '';
+  if (p.contact) {
+    resetScanFields(); leadSource = 'qr';
+    const n = fillFields(p.contact);
+    setMsg(`${n} fields filled from the e-contact. Please check them before saving.`, 'ok'); toast(`${n} fields read from the QR code`);
+  } else {
+    const el = $('#f-notes'); el.value = [el.value, codeNote(p)].filter(Boolean).join(' · ');
+    setMsg(p.kind === 'link'
+      ? 'This QR code is a link, not a contact card. It was added to Notes. Open it on the phone to see the contact, or take a photo of the badge.'
+      : 'This QR code has no contact details (only the fair\'s own badge ID). Use "Badge" to take a photo so the printed name and company are read.', 'err');
+  }
 }

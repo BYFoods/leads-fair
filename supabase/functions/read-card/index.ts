@@ -22,6 +22,12 @@ Extract the contact details of the person on the card, exactly as printed. Rules
 - Distinguish carefully between person name, company name and job title; logos often contain the company name.
 - Fix obvious reading errors in emails and websites (spaces, "(at)"), but do not change the spelling of names.
 - Photos can be rotated, angled or blurry: read carefully.`;
+const BADGE_PROMPT = `This is a photo of a trade-fair / conference badge (name badge worn by a visitor or exhibitor).
+Extract the details of the person wearing it, exactly as printed. Rules:
+- Never invent or guess: use an empty string for anything not printed. Badges rarely show email or phone: leave them empty unless printed.
+- Ignore the event name and logo, sponsor logos, dates, hall/stand numbers and the badge category (VISITOR, EXHIBITOR, PRESS, BUYER…); you may mention the category in notes.
+- The company is usually printed under the name; the country is often printed too (give it in English).
+- If both a Latin-script and a non-Latin version are printed, use the Latin one.`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -29,6 +35,10 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const images: string[] = (body.images ?? (body.image ? [body.image] : [])).slice(0, 2);
+    const badge = body.mode === 'badge';
+    const code = typeof body.code_text === 'string' ? body.code_text.slice(0, 1000) : '';
+    const prompt = (badge ? BADGE_PROMPT : PROMPT)
+      + (code ? `\n\nA QR/barcode on the photo was decoded as (it may be only an ID, use it only if it clearly contains contact data):\n${code}` : '');
     if (!images.length || images.some(i => typeof i !== 'string' || i.length > 6_000_000)) {
       return json({ error: 'Missing or oversized image' }, 400);
     }
@@ -45,7 +55,7 @@ Deno.serve(async (req) => {
         tool_choice: { type: 'tool', name: 'save_card' },
         messages: [{ role: 'user', content: [
           ...images.map(data => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } })),
-          { type: 'text', text: PROMPT },
+          { type: 'text', text: prompt },
         ] }],
       }),
     });
