@@ -154,7 +154,14 @@
 
   <dialog id="qr-dlg" class="qr-dlg">
     <div class="p-3 space-y-2">
-      <video id="qr-video" playsinline muted class="qr-video"></video>
+      <div class="qr-video-wrap">
+        <video id="qr-video" playsinline muted class="qr-video"></video>
+        <div id="qr-zoom-box" class="qr-zoom-box hidden">
+          <button type="button" id="qr-zoom-out" class="qr-zoom-btn" aria-label="Zoom out">−</button>
+          <input type="range" id="qr-zoom" class="qr-zoom-range" aria-label="Zoom">
+          <button type="button" id="qr-zoom-in" class="qr-zoom-btn" aria-label="Zoom in">+</button>
+        </div>
+      </div>
       <p id="qr-msg" class="text-sm text-muted text-center"></p>
       <button type="button" id="qr-cancel" class="btn btn-quiet w-full">Cancel</button>
     </div>

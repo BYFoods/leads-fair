@@ -476,14 +476,21 @@ async function decodeFrom(source) { // source: canvas or video; returns the text
 }
 
 /* Live QR scanning with the camera (e-contacts on a phone screen, badge QR codes) */
-const qrDlg = $('#qr-dlg'); let qrStream = null, qrLoop = 0;
+const qrDlg = $('#qr-dlg'); let qrStream = null, qrLoop = 0, qrTrack = null;
 $('#btn-qr').addEventListener('click', async () => {
   if (!navigator.mediaDevices?.getUserMedia) { toast('The camera is not available in this browser.'); return; }
   try {
-    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false });
-  } catch { toast('Allow camera access to scan QR codes.'); return; }
+    // A higher captured resolution lets a small/far QR code still resolve to enough pixels to decode.
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 }, advanced: [{ zoom: 1 }] }, audio: false,
+    });
+  } catch {
+    try { qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }); }
+    catch { toast('Allow camera access to scan QR codes.'); return; }
+  }
   const v = $('#qr-video'); v.srcObject = qrStream; await v.play().catch(() => {});
-  $('#qr-msg').textContent = 'Point the camera at the QR code.';
+  $('#qr-msg').textContent = 'Point the camera at the QR code. Use + to zoom in on small codes. If it is small, use the + to zoom in.';
+  setupZoom();
   qrDlg.showModal();
   const tick = async () => {
     if (!qrStream) return;
@@ -493,9 +500,31 @@ $('#btn-qr').addEventListener('click', async () => {
   };
   tick();
 });
-function stopQr() { clearTimeout(qrLoop); qrStream?.getTracks().forEach(t => t.stop()); qrStream = null; if (qrDlg.open) qrDlg.close(); }
+function stopQr() { clearTimeout(qrLoop); qrStream?.getTracks().forEach(t => t.stop()); qrStream = null; qrTrack = null; if (qrDlg.open) qrDlg.close(); }
 qrDlg.addEventListener('close', stopQr);
 $('#qr-cancel').addEventListener('click', stopQr);
+
+/* Optical zoom: uses the phone's own zoom lens/level through the camera track, like the native camera app.
+   Supported on Chrome/Android; Safari/iOS has no API for this yet, so the box stays hidden there (pinch-to-zoom works instead). */
+function setupZoom() {
+  const box = $('#qr-zoom-box'), range = $('#qr-zoom');
+  box.classList.add('hidden');
+  qrTrack = qrStream?.getVideoTracks?.()[0] ?? null;
+  const caps = qrTrack?.getCapabilities?.();
+  if (!caps?.zoom) return; // no zoom lens control available from this browser
+  range.min = caps.zoom.min; range.max = caps.zoom.max; range.step = caps.zoom.step || 0.1;
+  range.value = qrTrack.getSettings?.().zoom ?? caps.zoom.min;
+  box.classList.remove('hidden');
+}
+async function setZoom(v) {
+  if (!qrTrack) return;
+  const caps = qrTrack.getCapabilities?.(); if (!caps?.zoom) return;
+  v = Math.min(caps.zoom.max, Math.max(caps.zoom.min, v));
+  try { await qrTrack.applyConstraints({ advanced: [{ zoom: v }] }); $('#qr-zoom').value = v; } catch { /* device refused: ignore */ }
+}
+$('#qr-zoom').addEventListener('input', e => setZoom(Number(e.target.value)));
+$('#qr-zoom-in').addEventListener('click', () => setZoom(Number($('#qr-zoom').value) + Number($('#qr-zoom').step || 0.5)));
+$('#qr-zoom-out').addEventListener('click', () => setZoom(Number($('#qr-zoom').value) - Number($('#qr-zoom').step || 0.5)));
 function onQr(text) {
   stopQr(); if (navigator.vibrate) navigator.vibrate(60);
   const p = parseCode(text);
