@@ -89,13 +89,13 @@ async function loadTeamFair() {
   const changed = next !== teamFair;
   teamFair = next;
   if (changed && !editId && $('#f-event').value.trim() === '') $('#f-event').value = teamFair;
-  $('#fair-status').textContent = teamFair ? `Current fair for the whole team: ${teamFair}` : 'No fair set for the team yet — type one below and press "Set for team".';
+  $('#fair-status').textContent = teamFair ? `Current fair: ${teamFair}` : 'No fair set yet — type one below and press "Set for team".';
 }
 async function setTeamFair(name) {
   const ok = await run(sb.from('team_settings').update({ current_event: name, updated_by: me.id, updated_at: new Date().toISOString() }).eq('id', 1),
     'Could not set the team fair');
   if (!ok) return false;
-  teamFair = name; $('#fair-status').textContent = `Current fair for the whole team: ${teamFair}`;
+  teamFair = name; $('#fair-status').textContent = `Current fair: ${teamFair}`;
   toast(`"${name}" set as the current fair for the whole team`);
   return true;
 }
@@ -565,3 +565,17 @@ function onQr(text) {
       : 'This QR code has no contact details (only the fair\'s own badge ID). Use "Badge" to take a photo so the printed name and company are read.', 'err');
   }
 }
+
+/* Show/hide password toggles */
+function wirePasswordToggle(inputId, btnId) {
+  const input = $('#' + inputId), btn = $('#' + btnId); if (!input || !btn) return;
+  btn.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.textContent = show ? '🙈' : '👁';
+  });
+}
+wirePasswordToggle('l-pass', 'l-pass-toggle');
+wirePasswordToggle('p-new', 'p-new-toggle');

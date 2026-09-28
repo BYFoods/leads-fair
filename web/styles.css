@@ -36,6 +36,12 @@ body { background:var(--paper); color:var(--ink); }
 .fair-row { display:flex; gap:6px; }
 .fair-row .input { flex:1; }
 .fair-row .btn { white-space:nowrap; }
+.pw-row { position:relative; }
+.pw-row .input { padding-right:40px; }
+.pw-eye { position:absolute; right:2px; top:50%; transform:translateY(-50%); width:34px; height:34px;
+  border:0; background:none; cursor:pointer; font-size:1.05rem; line-height:1; border-radius:6px; opacity:.6; }
+.pw-eye:hover { opacity:1; }
+.pw-eye[aria-pressed="true"] { opacity:1; }
 
 table.leads { border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
 .leads th { text-align:left; font-size:.8rem; color:var(--muted); font-weight:600; padding:10px 12px; background:#FAFBFC; border-bottom:1px solid var(--line); }

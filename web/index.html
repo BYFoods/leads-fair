@@ -29,7 +29,12 @@
     <form id="login-form" class="card space-y-3">
       <h2 class="text-base font-semibold">Sign in</h2>
       <label class="field">Email<input id="l-email" type="email" class="input" required autocomplete="username"></label>
-      <label class="field">Password<input id="l-pass" type="password" class="input" required autocomplete="current-password"></label>
+      <label class="field">Password
+        <div class="pw-row">
+          <input id="l-pass" type="password" class="input" required autocomplete="current-password">
+          <button type="button" id="l-pass-toggle" class="pw-eye" aria-label="Show password" aria-pressed="false">👁</button>
+        </div>
+      </label>
       <button class="btn btn-primary w-full">Sign in</button>
       <button type="button" id="btn-forgot" class="btn btn-quiet w-full">Forgot / set password</button>
       <p id="login-msg" class="text-sm text-muted"></p>
@@ -39,7 +44,12 @@
   <section id="set-pass" hidden class="max-w-sm mx-auto px-4 py-10">
     <form id="pass-form" class="card space-y-3">
       <h2 class="text-base font-semibold">Choose your password</h2>
-      <label class="field">New password<input id="p-new" type="password" minlength="8" class="input" required autocomplete="new-password"></label>
+      <label class="field">New password
+        <div class="pw-row">
+          <input id="p-new" type="password" minlength="8" class="input" required autocomplete="new-password">
+          <button type="button" id="p-new-toggle" class="pw-eye" aria-label="Show password" aria-pressed="false">👁</button>
+        </div>
+      </label>
       <button class="btn btn-primary w-full">Save password</button>
     </form>
   </section>
