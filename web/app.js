@@ -41,7 +41,7 @@ const $ = s => document.querySelector(s);
 const configured = /^https:\/\/.+\.supabase\.co/.test(CONFIG.SUPABASE_URL) && !CONFIG.SUPABASE_ANON_KEY.includes('YOUR');
 const sb = configured ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) : null;
 if (!configured) $('#login-msg').textContent = 'Add your Supabase URL and key to config.js, then redeploy.';
-let leads = [], people = {}, me = null, started = false, editId = null, toastTimer;
+let leads = [], people = {}, me = null, started = false, editId = null, toastTimer, teamFair = '';
 let store = { templates: structuredClone(DEFAULT_TEMPLATES), reminders: structuredClone(DEFAULT_REMINDERS), settings: { ...DEFAULT_SETTINGS } };
 let tplKind = 'templates', tplLang = 'en';
 const settings = () => store.settings;
@@ -80,6 +80,32 @@ async function loadPeople() {
   people = Object.fromEntries((data || []).map(p => [p.id, p]));
 }
 const personName = id => { const p = people[id]; return p ? (p.full_name || p.email.split('@')[0]) : '—'; };
+
+/* Current fair: one shared value for the whole team, so every scan (by anyone) is tagged the
+   same way until someone changes it. */
+async function loadTeamFair() {
+  const { data } = await sb.from('team_settings').select('current_event').eq('id', 1).maybeSingle();
+  const next = data?.current_event || '';
+  const changed = next !== teamFair;
+  teamFair = next;
+  if (changed && !editId && $('#f-event').value.trim() === '') $('#f-event').value = teamFair;
+  $('#fair-status').textContent = teamFair ? `Current fair for the whole team: ${teamFair}` : 'No fair set for the team yet — type one below and press "Set for team".';
+}
+async function setTeamFair(name) {
+  const ok = await run(sb.from('team_settings').update({ current_event: name, updated_by: me.id, updated_at: new Date().toISOString() }).eq('id', 1),
+    'Could not set the team fair');
+  if (!ok) return false;
+  teamFair = name; $('#fair-status').textContent = `Current fair for the whole team: ${teamFair}`;
+  toast(`"${name}" set as the current fair for the whole team`);
+  return true;
+}
+$('#btn-set-fair').addEventListener('click', async () => {
+  const val = $('#f-event').value.trim();
+  if (!val) { toast('Type the fair name first.'); $('#f-event').focus(); return; }
+  if (val === teamFair) { toast('That is already the current fair.'); return; }
+  if (!confirm(`Set "${val}" as the current fair for the whole team? Every new lead — yours and your colleagues' — will be tagged with it from now on.`)) return;
+  await setTeamFair(val);
+});
 async function loadSettings() {
   const { data } = await sb.from('app_settings').select('data').maybeSingle();
   const saved = (data && data.data) || {};
@@ -119,7 +145,6 @@ $('#lead-form').addEventListener('submit', async e => {
     : await run(sb.from('leads').insert(data).select().single(), 'Could not save lead');
   btn.disabled = false;
   if (!saved) return; // keep the form filled so nothing is lost
-  if (data.event && data.event !== settings().event && !editId) { settings().event = data.event; saveSettings(); }
   toast(editId ? 'Lead updated' : 'Lead saved');
   resetForm(); await loadLeads();
   syncOdoo(saved.id, true);
@@ -127,7 +152,7 @@ $('#lead-form').addEventListener('submit', async e => {
 });
 function resetForm() {
   editId = null; $('#lead-form').reset(); $('#f-lang').value = 'en';
-  $('#f-event').value = settings().event || ''; $('#f-send').checked = true; $('#send-row').hidden = false;
+  $('#f-event').value = teamFair; $('#f-send').checked = true; $('#send-row').hidden = false;
   document.querySelectorAll('#lead-form [data-auto], #lead-form [data-qr]').forEach(el => { delete el.dataset.auto; delete el.dataset.qr; });
   leadSource = 'manual'; scanCodes = []; scans = []; $('#scan-box').classList.add('hidden'); $('#btn-back').classList.add('hidden'); $('#scan-thumbs').innerHTML = '';
   $('#form-title').textContent = 'Add a lead'; $('#f-submit').textContent = 'Save lead'; $('#f-cancel').classList.add('hidden');
@@ -269,7 +294,7 @@ function showTemplate() {
 const keepEdits = () => { store[tplKind][tplLang] = { subject: $('#t-subject').value, body: $('#t-body').value }; };
 function openDialog() {
   const s = settings();
-  $('#s-link').value = s.link; $('#s-sender').value = s.sender; $('#s-company').value = s.company; $('#s-event').value = s.event || '';
+  $('#s-link').value = s.link; $('#s-sender').value = s.sender; $('#s-company').value = s.company;
   $('#s-days').value = s.reminderDays; $('#s-max').value = s.maxReminders; $('#s-mail').value = s.mailTarget || 'default';
   $('#s-from').textContent = me.email;
   $('#tabs').innerHTML = Object.entries(LANGS).map(([k, v]) => `<button type="button" class="tab" role="tab" data-lang="${k}">${v}</button>`).join('');
@@ -283,13 +308,13 @@ $('#t-save').addEventListener('click', async () => {
   let link = $('#s-link').value.trim();
   if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
   store.settings = {
-    link, sender: $('#s-sender').value.trim(), company: $('#s-company').value.trim(), event: $('#s-event').value.trim(),
+    link, sender: $('#s-sender').value.trim(), company: $('#s-company').value.trim(),
     reminderDays: Math.max(0, Number($('#s-days').value) || 0), maxReminders: Math.max(0, Number($('#s-max').value) || 0),
     mailTarget: $('#s-mail').value,
   };
   if (await saveSettings()) {
     if (store.settings.sender) await sb.from('profiles').update({ full_name: store.settings.sender }).eq('id', me.id);
-    await loadPeople(); dlg.close(); if (!editId) $('#f-event').value = store.settings.event; render(); toast('Settings saved');
+    await loadPeople(); dlg.close(); render(); toast('Settings saved');
   }
 });
 $('#t-reset').addEventListener('click', () => {
@@ -330,7 +355,7 @@ async function onSession(session) {
   if (!session) { leads = []; $('#who').textContent = ''; show('login'); return; }
   if (needsPassword) { show('pass'); return; }
   show('app');
-  await loadPeople(); await loadSettings();
+  await loadPeople(); await loadSettings(); await loadTeamFair();
   $('#who').textContent = `Signed in as ${people[me.id]?.full_name || me.email}`;
   resetForm(); await loadLeads();
 }
@@ -359,8 +384,8 @@ $('#pass-form').addEventListener('submit', async e => {
   const { data } = await sb.auth.getSession(); started = true; onSession(data.session);
 });
 $('#btn-out').addEventListener('click', () => sb.auth.signOut());
-document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !$('#app').hidden) loadLeads(); });
-setInterval(() => { if (!document.hidden && me && !$('#app').hidden && !dlg.open) loadLeads(); }, 60000); // opens/replies update
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !$('#app').hidden) { loadLeads(); loadTeamFair(); } });
+setInterval(() => { if (!document.hidden && me && !$('#app').hidden && !dlg.open) { loadLeads(); loadTeamFair(); } }, 60000); // opens/replies/fair update
 
 /* ---------- Scanning: business cards, badges (photo + AI) and QR e-contacts ---------- */
 let scans = [], scanMode = 'card', scanCodes = [], leadSource = 'manual';

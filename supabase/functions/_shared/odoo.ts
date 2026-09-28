@@ -4,9 +4,16 @@ import { admin, env, type Lead } from './util.ts';
 
 export const odooReady = () => !!(env('ODOO_URL') && env('ODOO_DB') && env('ODOO_USER') && env('ODOO_API_KEY'));
 
+// The ODOO_URL secret is sometimes saved without "https://" (e.g. "by-foods1.odoo.com"), which
+// makes fetch() reject it as an invalid URL. Accept that and add the scheme automatically.
+function odooBase() {
+  const raw = env('ODOO_URL').trim().replace(/\/+$/, '');
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
 let uid: number | null = null;
 async function rpc(service: string, method: string, args: unknown[]) {
-  const r = await fetch(`${env('ODOO_URL').replace(/\/+$/, '')}/jsonrpc`, {
+  const r = await fetch(`${odooBase()}/jsonrpc`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: Date.now(), params: { service, method, args } }),
   });
