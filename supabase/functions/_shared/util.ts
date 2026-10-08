@@ -79,11 +79,14 @@ async function graph(path: string, init: RequestInit = {}) {
 }
 
 // Sends from the user's own mailbox (it appears in their Sent Items).
-export async function sendMail(from: string, to: string, subject: string, html: string) {
+export async function sendMail(from: string, to: string, subject: string, html: string, attachments: unknown[] = []) {
   const r = await graph(`/users/${encodeURIComponent(from)}/sendMail`, {
     method: 'POST',
     body: JSON.stringify({
-      message: { subject, body: { contentType: 'HTML', content: html }, toRecipients: [{ emailAddress: { address: to } }] },
+      message: {
+        subject, body: { contentType: 'HTML', content: html }, toRecipients: [{ emailAddress: { address: to } }],
+        ...(attachments.length ? { attachments } : {}),
+      },
       saveToSentItems: true,
     }),
   });

@@ -83,3 +83,5 @@ dialog::backdrop { background:rgba(20,33,61,.55); }
 .qr-zoom-btn { width:28px; height:28px; flex:0 0 auto; border-radius:50%; border:0; background:rgba(255,255,255,.9);
   color:var(--ink); font-size:1.1rem; font-weight:700; line-height:1; cursor:pointer; }
 .qr-zoom-range { flex:1; accent-color:#fff; }
+.affair { display:inline-block; margin-top:5px; font-size:.75rem; font-weight:600; color:#8A1F2B; cursor:help; }
+.affair.ok { color:var(--ok); } .affair.err { color:#B42318; }

@@ -50,7 +50,7 @@ Depois disto, cada `git push` publica a app automaticamente.
 1. **SQL Editor → New query** → colar `supabase/migrations/002_team_email_odoo.sql` → *Run*.
 2. **Authentication → Sign In / Providers**: desligar *Allow new users to sign up* (só entra quem for convidado — importante, porque a equipa vê todos os leads).
 3. **Authentication → URL Configuration**: *Site URL* = endereço da app (servidor da empresa ou Netlify).
-   Depois correr também `supabase/migrations/004_source.sql` e `005_team_fair.sql` (regista se o lead veio de cartão, badge, QR ou manual).
+   Depois correr também `supabase/migrations/004_source.sql` e `005_team_fair.sql` e `006_affair_invite.sql` (convite "A Portuguese Affair": envia às 18:00 de Paris de 19 Out; precisa de ter corrido a 003 antes — se não, corra a 006 outra vez depois) (regista se o lead veio de cartão, badge, QR ou manual).
 4. **Authentication → Users → Invite user**: convidar cada comercial **com o email Microsoft 365 dele** (ex.: `nc@byfoodsglobal.com`). Recebem um link e escolhem a password na app.
 
 ## 4. Funções no servidor

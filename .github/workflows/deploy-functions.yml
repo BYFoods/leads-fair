@@ -19,7 +19,7 @@ jobs:
       # Bundles each function on the runner (Docker) and uploads it; one at a time so an error names the function.
       - run: |
           set -e
-          for f in read-card send-email track odoo-sync reminders; do
+          for f in read-card send-email track odoo-sync reminders invites; do
             echo "::group::Deploying $f"
             supabase functions deploy "$f" --project-ref "$SUPABASE_PROJECT_REF" --debug
             echo "::endgroup::"

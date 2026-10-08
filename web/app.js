@@ -45,6 +45,9 @@ let leads = [], people = {}, me = null, started = false, editId = null, toastTim
 let store = { templates: structuredClone(DEFAULT_TEMPLATES), reminders: structuredClone(DEFAULT_REMINDERS), settings: { ...DEFAULT_SETTINGS } };
 let tplKind = 'templates', tplLang = 'en';
 const settings = () => store.settings;
+// "A Portuguese Affair" invitation: goes out 19 Oct 18:00 Paris (16:00 UTC, summer time), or right away if that has passed.
+// After the party starts (20 Oct 17:00 Paris) it is never sent. Keep in sync with supabase/functions/_shared/affair.ts.
+const INVITE_AT = Date.parse('2026-10-19T16:00:00Z'), INVITE_UNTIL = Date.parse('2026-10-20T15:00:00Z');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = t => new Date(t).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -139,6 +142,9 @@ $('#lead-form').addEventListener('submit', async e => {
   data.lang = $('#f-lang').value;
   if (!editId) data.source = leadSource;
   const wantsSend = !editId && $('#f-send').checked && data.email;
+  const inviteBox = $('#f-invite');
+  const wantsInvite = !inviteBox.disabled && inviteBox.checked && !!data.email;
+  if (!inviteBox.disabled) data.invite_affair = inviteBox.checked;
   const btn = $('#f-submit'); btn.disabled = true;
   const saved = editId
     ? await run(sb.from('leads').update(data).eq('id', editId).select().single(), 'Could not update lead')
@@ -149,15 +155,43 @@ $('#lead-form').addEventListener('submit', async e => {
   resetForm(); await loadLeads();
   syncOdoo(saved.id, true);
   if (wantsSend) await sendEmail(leads.find(l => l.id === saved.id) || saved, 'first', true);
+  if (wantsInvite) await handleInvite(leads.find(l => l.id === saved.id) || saved);
+  else if (data.invite_affair && !data.email) toast('Invitation not scheduled: this lead has no email address. Add one with Edit.', 6000);
 });
 function resetForm() {
   editId = null; $('#lead-form').reset(); $('#f-lang').value = 'en';
   $('#f-event').value = teamFair; $('#f-send').checked = true; $('#send-row').hidden = false;
+  $('#f-invite').checked = false; $('#f-invite').disabled = false; inviteHint();
   document.querySelectorAll('#lead-form [data-auto], #lead-form [data-qr]').forEach(el => { delete el.dataset.auto; delete el.dataset.qr; });
   leadSource = 'manual'; scanCodes = []; scans = []; $('#scan-box').classList.add('hidden'); $('#btn-back').classList.add('hidden'); $('#scan-thumbs').innerHTML = '';
   $('#form-title').textContent = 'Add a lead'; $('#f-submit').textContent = 'Save lead'; $('#f-cancel').classList.add('hidden');
 }
 $('#f-cancel').addEventListener('click', resetForm);
+
+/* ---------- A Portuguese Affair invitation ---------- */
+function inviteHint(lead) {
+  const box = $('#f-invite'), hint = $('#invite-hint');
+  if (lead?.invite_sent_at) { box.disabled = true; hint.textContent = `Invitation already sent ${fmt(lead.invite_sent_at)}.`; return; }
+  box.disabled = Date.now() >= INVITE_UNTIL;
+  hint.textContent = Date.now() >= INVITE_UNTIL ? 'The event has already started.'
+    : Date.now() >= INVITE_AT ? 'The invitation will be sent right after saving.'
+    : 'The invitation email is sent on 19 Oct at 18:00 Paris time (17:00 Lisbon).';
+}
+async function handleInvite(lead) {
+  if (lead.invite_sent_at) return;
+  if (Date.now() < INVITE_AT) { toast('Invitation scheduled for 19 Oct, 18:00 Paris time.'); return; }
+  toast(`Sending the Portuguese Affair invitation to ${lead.email}…`, 10000);
+  const r = await callFn('send-email', { lead_id: lead.id, kind: 'invite' });
+  if (r.code === 'not_configured') { toast('Automatic sending is not set up: the invitation was not sent.', 7000); return; }
+  if (r.error) toast('Invitation not sent: ' + r.error, 7000); else toast(`Invitation sent to ${lead.email}`);
+  await loadLeads();
+}
+function inviteBadge(l) {
+  if (l.invite_sent_at) return `<br><span class="affair ok" title="Sent from ${esc(l.invite_from || '')}">🎟 Affair invite sent ${fmt(l.invite_sent_at)}</span>`;
+  if (!l.invite_affair) return '';
+  if (l.invite_error) return `<br><span class="affair err" title="${esc(l.invite_error)}">🎟 Affair invite failed (retries hourly)</span>`;
+  return `<br><span class="affair" title="Sent automatically">🎟 Affair invite ${Date.now() >= INVITE_AT ? 'sending…' : 'scheduled 19 Oct 18:00 (Paris)'}</span>`;
+}
 
 /* ---------- Status of the follow-up ---------- */
 function status(l) {
@@ -208,6 +242,7 @@ function render() {
       <td data-label="Country">${esc(l.country)}<br><span class="pill">${LANGS[l.lang] || l.lang}</span></td>
       <td data-label="Follow-up"><span class="st ${s.cls}" title="${esc(s.tip)}">${esc(s.label)}</span>
         ${l.sent_at && !l.replied_at ? `<label class="auto" title="Send automatic reminders if there is no reply"><input type="checkbox" data-act="auto" data-id="${l.id}" ${l.auto_remind ? 'checked' : ''}> auto-remind</label>` : ''}
+        ${inviteBadge(l)}
         ${odooBadge(l)}</td>
       <td data-label="Added">${fmt(l.created_at)}<br><span class="text-muted">${esc(personName(l.user_id))}${l.event ? ' · ' + esc(l.event) : ''}</span></td>
       <td><div class="acts">
@@ -235,6 +270,7 @@ $('#rows').addEventListener('click', async e => {
     editId = lead.id;
     FIELDS.forEach(k => { $('#f-' + k).value = lead[k] || ''; });
     $('#f-lang').value = lead.lang; $('#send-row').hidden = true;
+    $('#f-invite').checked = !!lead.invite_affair; inviteHint(lead);
     $('#form-title').textContent = 'Edit lead'; $('#f-submit').textContent = 'Save changes'; $('#f-cancel').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' }); $('#f-name').focus();
   }
