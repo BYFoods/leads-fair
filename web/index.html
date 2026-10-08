@@ -77,7 +77,10 @@
         <label class="field">Name *<input id="f-name" class="input" required></label>
         <label class="field">Company<input id="f-company" class="input"></label>
         <label class="field">Job title<input id="f-title" class="input"></label>
-        <label class="field">Email<input id="f-email" type="email" inputmode="email" class="input"></label>
+        <div>
+          <label class="field">Email<input id="f-email" type="email" inputmode="email" class="input" autocapitalize="off" spellcheck="false"></label>
+          <p id="email-hint" class="email-hint" role="status" hidden></p>
+        </div>
         <label class="field">Phone<input id="f-phone" type="tel" inputmode="tel" class="input"></label>
         <label class="field">Website<input id="f-website" class="input" inputmode="url"></label>
         <label class="field sm:col-span-2">Address<input id="f-address" class="input"></label>
@@ -91,7 +94,14 @@
             <button type="button" id="btn-set-fair" class="btn btn-quiet btn-sm" title="Set this as the current fair for the whole team">Set for team</button>
           </div>
         </label>
-        <label class="field">Notes<input id="f-notes" class="input" placeholder="Interested in…"></label>
+        <div class="field sm:col-span-2">
+          <div class="flex items-center justify-between">
+            <label for="f-notes">Notes</label>
+            <button type="button" id="btn-dictate" class="dictate" hidden aria-pressed="false">🎤 Dictate</button>
+          </div>
+          <textarea id="f-notes" rows="2" class="input" placeholder="Interested in…"></textarea>
+          <p id="dictate-msg" class="text-xs text-muted" hidden></p>
+        </div>
         <datalist id="countries"></datalist>
         <label id="send-row" class="sm:col-span-2 flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" id="f-send" class="w-4 h-4" checked> Send the follow-up email right after saving
@@ -192,6 +202,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="codes.js"></script>
+  <script src="email-check.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

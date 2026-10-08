@@ -159,7 +159,7 @@ $('#lead-form').addEventListener('submit', async e => {
   else if (data.invite_affair && !data.email) toast('Invitation not scheduled: this lead has no email address. Add one with Edit.', 6000);
 });
 function resetForm() {
-  editId = null; $('#lead-form').reset(); $('#f-lang').value = 'en';
+  stopDictation(); editId = null; $('#lead-form').reset(); $('#f-lang').value = 'en'; checkEmail();
   $('#f-event').value = teamFair; $('#f-send').checked = true; $('#send-row').hidden = false;
   $('#f-invite').checked = false; $('#f-invite').disabled = false; inviteHint();
   document.querySelectorAll('#lead-form [data-auto], #lead-form [data-qr]').forEach(el => { delete el.dataset.auto; delete el.dataset.qr; });
@@ -167,6 +167,71 @@ function resetForm() {
   $('#form-title').textContent = 'Add a lead'; $('#f-submit').textContent = 'Save lead'; $('#f-cancel').classList.add('hidden');
 }
 $('#f-cancel').addEventListener('click', resetForm);
+
+/* ---------- Email check: feedback under the email box ---------- */
+let mailTimer, mailSeq = 0;
+function checkEmail() {
+  const box = $('#f-email'), hint = $('#email-hint'), seq = ++mailSeq;
+  clearTimeout(mailTimer);
+  const found = EmailCheck.check(box.value, $('#f-website').value);
+  const show = (level, text, fix) => {
+    hint.hidden = false; hint.className = 'email-hint ' + level;
+    hint.innerHTML = `<span>${{ error: '✖', warn: '⚠', info: 'ℹ', ok: '✓' }[level]} ${esc(text)}</span>`
+      + (fix ? `<button type="button" data-fix="${esc(fix)}">Use ${esc(fix)}</button>` : '');
+  };
+  if (!box.value.trim()) { hint.hidden = true; return; }
+  const top = found[0];
+  if (top) show(top.level, top.msg, top.fix);
+  else hint.hidden = true;
+  if (found.some(f => f.level === 'error')) return; // no point asking DNS about a broken address
+  const domain = box.value.trim().split('@')[1];
+  if (!domain) return;
+  mailTimer = setTimeout(async () => { // does the domain exist and accept mail?
+    const r = await EmailCheck.mxStatus(domain);
+    if (seq !== mailSeq) return; // the box changed meanwhile
+    if (r === 'none') show('error', `The domain "${domain.toLowerCase()}" cannot receive email: check the spelling.`);
+    else if (r === 'ok' && !top) show('ok', 'Domain accepts email.');
+  }, 600);
+}
+$('#email-hint').addEventListener('click', e => {
+  const b = e.target.closest('button[data-fix]'); if (!b) return;
+  const el = $('#f-email'); el.value = b.dataset.fix; delete el.dataset.auto; checkEmail();
+});
+['#f-email', '#f-website'].forEach(s => $(s).addEventListener('input', checkEmail));
+
+/* ---------- Dictation (speech to text) for the notes ---------- */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function stopDictation() { if (rec) { try { rec.stop(); } catch { /* already stopped */ } } }
+if (SpeechRec) {
+  $('#btn-dictate').hidden = false;
+  $('#btn-dictate').addEventListener('click', () => {
+    const btn = $('#btn-dictate'), notes = $('#f-notes'), msg = $('#dictate-msg');
+    if (rec) { stopDictation(); return; }
+    let base = notes.value.trim(), finalText = '';
+    rec = new SpeechRec();
+    rec.lang = navigator.language || 'en-GB'; rec.continuous = true; rec.interimResults = true;
+    rec.onstart = () => { btn.setAttribute('aria-pressed', 'true'); btn.textContent = '⏹ Stop'; msg.hidden = false; msg.textContent = `Listening (${rec.lang})… speak now, press Stop when done.`; };
+    rec.onresult = ev => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += (finalText ? ' ' : '') + t.trim(); else interim += t;
+      }
+      notes.value = [base, finalText, interim.trim()].filter(Boolean).join(' ');
+    };
+    rec.onerror = ev => {
+      const why = { 'not-allowed': 'Microphone blocked: allow it in the browser address bar.', 'service-not-allowed': 'Microphone blocked: allow it in the browser address bar.',
+        'no-speech': 'Did not hear anything.', 'audio-capture': 'No microphone found.', network: 'Dictation needs an internet connection.' }[ev.error];
+      if (why) { msg.hidden = false; msg.textContent = why; }
+    };
+    rec.onend = () => {
+      rec = null; btn.setAttribute('aria-pressed', 'false'); btn.textContent = '🎤 Dictate';
+      if (msg.textContent.startsWith('Listening')) msg.hidden = true;
+    };
+    try { rec.start(); } catch { rec = null; }
+  });
+}
 
 /* ---------- A Portuguese Affair invitation ---------- */
 function inviteHint(lead) {
@@ -268,7 +333,7 @@ $('#rows').addEventListener('click', async e => {
   if (b.dataset.act === 'odoo') syncOdoo(lead.id);
   if (b.dataset.act === 'edit') {
     editId = lead.id;
-    FIELDS.forEach(k => { $('#f-' + k).value = lead[k] || ''; });
+    FIELDS.forEach(k => { $('#f-' + k).value = lead[k] || ''; }); checkEmail();
     $('#f-lang').value = lead.lang; $('#send-row').hidden = true;
     $('#f-invite').checked = !!lead.invite_affair; inviteHint(lead);
     $('#form-title').textContent = 'Edit lead'; $('#f-submit').textContent = 'Save changes'; $('#f-cancel').classList.remove('hidden');
@@ -474,6 +539,7 @@ function fillFields(card, force = false) { // returns how many fields were fille
     }
   }
   const l = langFor($('#f-country').value); if (l) $('#f-lang').value = l;
+  checkEmail();
   return n;
 }
 const codeNote = parsed => (parsed.kind === 'link' ? 'QR link: ' : 'Badge code: ') + parsed.raw.slice(0, 200);

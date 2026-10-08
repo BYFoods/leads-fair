@@ -6,7 +6,7 @@ body { background:var(--paper); color:var(--ink); }
 .border-line { border-color:var(--line); }
 .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; }
 .field { display:flex; flex-direction:column; gap:4px; font-size:.875rem; font-weight:500; }
-.input { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:1rem; background:#fff; color:var(--ink); font-weight:400; }
+.input { font-family:inherit; width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:1rem; background:#fff; color:var(--ink); font-weight:400; }
 .input:focus, .btn:focus-visible, .tab:focus-visible, .kind:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
 .btn { border-radius:8px; padding:10px 14px; font-size:.9rem; font-weight:600; cursor:pointer; border:1px solid transparent; }
 .btn:disabled { opacity:.45; cursor:not-allowed; }
@@ -85,3 +85,13 @@ dialog::backdrop { background:rgba(20,33,61,.55); }
 .qr-zoom-range { flex:1; accent-color:#fff; }
 .affair { display:inline-block; margin-top:5px; font-size:.75rem; font-weight:600; color:#8A1F2B; cursor:help; }
 .affair.ok { color:var(--ok); } .affair.err { color:#B42318; }
+
+/* email check + dictation */
+.email-hint { margin-top:5px; font-size:.8rem; font-weight:600; display:flex; gap:6px; align-items:baseline; flex-wrap:wrap; }
+.email-hint.error { color:#B42318; } .email-hint.warn { color:#A15C00; } .email-hint.info { color:var(--muted); } .email-hint.ok { color:var(--ok); }
+.email-hint button { border:1px solid currentColor; background:#fff; color:inherit; border-radius:99px; padding:1px 9px; font-size:.75rem; font-weight:600; cursor:pointer; }
+.dictate { border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:99px; padding:3px 11px; font-size:.8rem; font-weight:600; cursor:pointer; }
+.dictate:hover { color:var(--ink); }
+.dictate[aria-pressed="true"] { background:#B42318; border-color:#B42318; color:#fff; animation:rec 1.2s ease-in-out infinite; }
+@keyframes rec { 50% { opacity:.65; } }
+@media (prefers-reduced-motion: reduce) { .dictate[aria-pressed="true"] { animation:none; } }
