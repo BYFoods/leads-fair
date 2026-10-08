@@ -95,3 +95,29 @@ dialog::backdrop { background:rgba(20,33,61,.55); }
 .dictate[aria-pressed="true"] { background:#B42318; border-color:#B42318; color:#fff; animation:rec 1.2s ease-in-out infinite; }
 @keyframes rec { 50% { opacity:.65; } }
 @media (prefers-reduced-motion: reduce) { .dictate[aria-pressed="true"] { animation:none; } }
+
+/* nav + dashboard */
+.nav-tab { padding:9px 16px; font-size:.9rem; font-weight:600; color:rgba(255,255,255,.7); background:none; border:0; border-bottom:2px solid transparent; cursor:pointer; }
+.nav-tab:hover { color:#fff; }
+.nav-tab[aria-selected="true"] { color:#fff; border-bottom-color:#fff; }
+.nav-tab:focus-visible { outline:2px solid #fff; outline-offset:-2px; }
+.eyebrow { font-size:.75rem; font-weight:600; letter-spacing:.14em; color:var(--accent); }
+.tile { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:2px; }
+.tile strong { font-size:1.9rem; line-height:1.1; font-weight:700; }
+.tile .tl { font-size:.75rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.tile .ts { font-size:.78rem; color:var(--muted); }
+.chart-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
+.chart-card h3 { font-size:1rem; font-weight:700; }
+.chart-card .sub { font-size:.8rem; color:var(--muted); margin-bottom:12px; }
+.bars { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:9px; }
+.bars li { display:grid; grid-template-columns:minmax(80px,32%) 1fr 34px; align-items:center; gap:10px; font-size:.85rem; }
+.bars .bl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bars .bt { background:#EEF0F4; border-radius:4px; height:10px; display:block; }
+.bars .bt i { display:block; height:10px; background:var(--accent); border-radius:4px; min-width:2px; }
+.bars b { text-align:right; font-variant-numeric:tabular-nums; }
+.cols { display:flex; align-items:flex-end; gap:6px; height:150px; padding-top:18px; }
+.cols .c { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; gap:4px; min-width:0; }
+.cols .c i { display:block; width:100%; max-width:26px; background:var(--accent); border-radius:4px 4px 0 0; }
+.cols .c b { font-size:.7rem; font-variant-numeric:tabular-nums; }
+.cols .c span { font-size:.68rem; color:var(--muted); }
+.chart-empty { color:var(--muted); font-size:.85rem; }

@@ -1,37 +1,34 @@
 'use strict';
-const LANGS = { en: 'English', fr: 'Français', es: 'Español', de: 'Deutsch', pt: 'Português' };
+const LANGS = { en: 'English', it: 'Italiano', es: 'Español', pt: 'Português' };
+const LANG_NAME = l => LANGS[l] || { fr: 'Français', de: 'Deutsch' }[l] || l; // old leads may still be French/German
 const COUNTRIES = {
-  'France': 'fr', 'Belgium': 'fr', 'Switzerland': 'de', 'Luxembourg': 'fr', 'Canada': 'en', 'Monaco': 'fr',
-  'Germany': 'de', 'Austria': 'de', 'Spain': 'es', 'Mexico': 'es', 'Argentina': 'es', 'Colombia': 'es', 'Chile': 'es', 'Peru': 'es',
+  'France': 'en', 'Belgium': 'en', 'Switzerland': 'en', 'Luxembourg': 'en', 'Canada': 'en', 'Monaco': 'en',
+  'Germany': 'en', 'Austria': 'en', 'Spain': 'es', 'Mexico': 'es', 'Argentina': 'es', 'Colombia': 'es', 'Chile': 'es', 'Peru': 'es',
   'Portugal': 'pt', 'Brazil': 'pt', 'Angola': 'pt', 'Mozambique': 'pt', 'Cape Verde': 'pt',
   'United Kingdom': 'en', 'United States': 'en', 'Ireland': 'en', 'Australia': 'en', 'South Africa': 'en', 'Nigeria': 'en',
-  'Italy': 'en', 'Netherlands': 'en', 'Poland': 'en', 'Sweden': 'en', 'Denmark': 'en', 'Norway': 'en', 'Finland': 'en', 'Greece': 'en',
-  'Morocco': 'fr', 'Tunisia': 'fr', 'Algeria': 'fr', 'Senegal': 'fr', 'Ivory Coast': 'fr', 'Cameroon': 'fr',
+  'Italy': 'it', 'Netherlands': 'en', 'Poland': 'en', 'Sweden': 'en', 'Denmark': 'en', 'Norway': 'en', 'Finland': 'en', 'Greece': 'en',
+  'Morocco': 'en', 'Tunisia': 'en', 'Algeria': 'en', 'Senegal': 'en', 'Ivory Coast': 'en', 'Cameroon': 'en',
   'United Arab Emirates': 'en', 'Saudi Arabia': 'en', 'Qatar': 'en', 'Kuwait': 'en', 'Oman': 'en', 'Bahrain': 'en', 'Egypt': 'en',
-  'Jordan': 'en', 'Lebanon': 'fr', 'Turkey': 'en', 'India': 'en', 'Pakistan': 'en', 'China': 'en', 'Japan': 'en', 'South Korea': 'en',
+  'Jordan': 'en', 'Lebanon': 'en', 'Turkey': 'en', 'India': 'en', 'Pakistan': 'en', 'China': 'en', 'Japan': 'en', 'South Korea': 'en',
   'Singapore': 'en', 'Malaysia': 'en', 'Indonesia': 'en', 'Thailand': 'en', 'Vietnam': 'en', 'Philippines': 'en'
 };
 const DEFAULT_TEMPLATES = {
   en: { subject: 'Great meeting you at {{event}}',
     body: 'Hello {{name}},\n\nIt was a pleasure meeting you at {{event}}. Thank you for your interest in {{my_company}}.\n\nAs promised, here is our digital brochure:\n{{brochure_link}}\n\nI would be glad to answer any questions or arrange a call.\n\nBest regards,\n{{sender}}' },
-  fr: { subject: 'Ravi de vous avoir rencontré à {{event}}',
-    body: 'Bonjour {{name}},\n\nJ\'ai été ravi de faire votre connaissance à {{event}}. Merci de l\'intérêt que vous portez à {{my_company}}.\n\nComme convenu, voici notre brochure numérique :\n{{brochure_link}}\n\nJe reste à votre disposition pour toute question ou pour organiser un appel.\n\nCordialement,\n{{sender}}' },
+  it: { subject: 'È stato un piacere conoscerla a {{event}}',
+    body: 'Buongiorno {{name}},\n\nè stato un piacere conoscerla a {{event}}. La ringrazio per l\'interesse dimostrato per {{my_company}}.\n\nCome promesso, ecco il nostro catalogo digitale:\n{{brochure_link}}\n\nResto a sua disposizione per qualsiasi domanda o per fissare una chiamata.\n\nCordiali saluti,\n{{sender}}' },
   es: { subject: 'Un placer conocerle en {{event}}',
     body: 'Hola {{name}}:\n\nFue un placer conocerle en {{event}}. Gracias por su interés en {{my_company}}.\n\nTal como acordamos, aquí tiene nuestro catálogo digital:\n{{brochure_link}}\n\nQuedo a su disposición para resolver cualquier duda o concertar una llamada.\n\nUn cordial saludo,\n{{sender}}' },
-  de: { subject: 'Schön, Sie auf der {{event}} getroffen zu haben',
-    body: 'Guten Tag {{name}},\n\nes hat mich sehr gefreut, Sie auf der {{event}} kennenzulernen. Vielen Dank für Ihr Interesse an {{my_company}}.\n\nWie besprochen, finden Sie hier unsere digitale Broschüre:\n{{brochure_link}}\n\nGerne beantworte ich Ihre Fragen oder vereinbare ein Gespräch.\n\nMit freundlichen Grüßen\n{{sender}}' },
   pt: { subject: 'Foi um prazer conhecê-lo na {{event}}',
     body: 'Olá {{name}},\n\nFoi um prazer conhecê-lo na {{event}}. Obrigado pelo interesse na {{my_company}}.\n\nComo combinado, segue a nossa brochura digital:\n{{brochure_link}}\n\nFico ao dispor para qualquer questão ou para marcarmos uma chamada.\n\nCom os melhores cumprimentos,\n{{sender}}' }
 };
 const DEFAULT_REMINDERS = {
   en: { subject: 'Following up',
     body: 'Hello {{name}},\n\nI just wanted to follow up on my previous email after {{event}}. In case you missed it, here is our brochure again:\n{{brochure_link}}\n\nWould you have a few minutes for a short call in the coming days?\n\nBest regards,\n{{sender}}' },
-  fr: { subject: 'Suite à notre rencontre',
-    body: 'Bonjour {{name}},\n\nJe me permets de revenir vers vous suite à mon précédent message après {{event}}. Voici à nouveau notre brochure :\n{{brochure_link}}\n\nAuriez-vous quelques minutes pour un court échange dans les prochains jours ?\n\nCordialement,\n{{sender}}' },
+  it: { subject: 'Seguito al nostro incontro',
+    body: 'Buongiorno {{name}},\n\nle scrivo per dare seguito alla mia email precedente dopo {{event}}. Nel caso non l\'avesse vista, ecco di nuovo il nostro catalogo:\n{{brochure_link}}\n\nAvrebbe qualche minuto per una breve chiamata nei prossimi giorni?\n\nCordiali saluti,\n{{sender}}' },
   es: { subject: 'Seguimiento',
     body: 'Hola {{name}}:\n\nLe escribo para dar seguimiento a mi mensaje anterior tras {{event}}. Por si no lo vio, aquí tiene de nuevo nuestro catálogo:\n{{brochure_link}}\n\n¿Tendría unos minutos para una breve llamada en los próximos días?\n\nUn cordial saludo,\n{{sender}}' },
-  de: { subject: 'Kurze Nachfrage',
-    body: 'Guten Tag {{name}},\n\nich wollte kurz an meine letzte E-Mail nach der {{event}} anknüpfen. Hier noch einmal unsere Broschüre:\n{{brochure_link}}\n\nHätten Sie in den nächsten Tagen Zeit für ein kurzes Gespräch?\n\nMit freundlichen Grüßen\n{{sender}}' },
   pt: { subject: 'Seguimento',
     body: 'Olá {{name}},\n\nVenho dar seguimento ao meu email anterior após a {{event}}. Caso não o tenha visto, segue novamente a nossa brochura:\n{{brochure_link}}\n\nTeria alguns minutos para uma breve chamada nos próximos dias?\n\nCom os melhores cumprimentos,\n{{sender}}' }
 };
@@ -76,7 +73,7 @@ async function loadLeads() {
     if (error) { toast('Could not load leads: ' + error.message); return; }
     all = all.concat(data); if (data.length < 1000) break; from += 1000;
   }
-  leads = all; render();
+  leads = all; render(); renderDash();
 }
 async function loadPeople() {
   const { data } = await sb.from('profiles').select('id, email, full_name');
@@ -304,7 +301,7 @@ function render() {
       <td data-label="Name"><strong>${esc(l.name)}</strong><br><span class="text-muted">${esc([l.title, l.company].filter(Boolean).join(', '))}</span>
         ${l.notes ? `<br><span class="text-muted text-xs">${esc(l.notes)}</span>` : ''}</td>
       <td data-label="Contact">${esc(l.email)}${l.email && l.phone ? '<br>' : ''}${esc(l.phone)}${l.website ? `<br><span class="text-muted">${esc(l.website)}</span>` : ''}</td>
-      <td data-label="Country">${esc(l.country)}<br><span class="pill">${LANGS[l.lang] || l.lang}</span></td>
+      <td data-label="Country">${esc(l.country)}<br><span class="pill">${LANG_NAME(l.lang)}</span></td>
       <td data-label="Follow-up"><span class="st ${s.cls}" title="${esc(s.tip)}">${esc(s.label)}</span>
         ${l.sent_at && !l.replied_at ? `<label class="auto" title="Send automatic reminders if there is no reply"><input type="checkbox" data-act="auto" data-id="${l.id}" ${l.auto_remind ? 'checked' : ''}> auto-remind</label>` : ''}
         ${inviteBadge(l)}
@@ -334,7 +331,7 @@ $('#rows').addEventListener('click', async e => {
   if (b.dataset.act === 'edit') {
     editId = lead.id;
     FIELDS.forEach(k => { $('#f-' + k).value = lead[k] || ''; }); checkEmail();
-    $('#f-lang').value = lead.lang; $('#send-row').hidden = true;
+    $('#f-lang').value = LANGS[lead.lang] ? lead.lang : 'en'; $('#send-row').hidden = true;
     $('#f-invite').checked = !!lead.invite_affair; inviteHint(lead);
     $('#form-title').textContent = 'Edit lead'; $('#f-submit').textContent = 'Save changes'; $('#f-cancel').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' }); $('#f-name').focus();
@@ -447,10 +444,22 @@ $('#btn-export').addEventListener('click', () => {
 
 /* ---------- Auth ---------- */
 let needsPassword = /type=(invite|recovery)/.test(location.hash);
+let page = location.hash === '#dashboard' ? 'dash' : 'leads', inApp = false;
+function applyPage() {
+  $('#app').hidden = !inApp || page !== 'leads'; $('#dash').hidden = !inApp || page !== 'dash';
+  document.querySelectorAll('.nav-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.page === page)));
+  renderDash();
+}
 function show(view) {
   $('#login').hidden = view !== 'login'; $('#set-pass').hidden = view !== 'pass';
-  $('#app').hidden = view !== 'app'; $('#hdr-btns').hidden = view !== 'app';
+  $('#hdr-btns').hidden = view !== 'app'; $('#nav').hidden = view !== 'app';
+  inApp = view === 'app'; applyPage();
 }
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('.nav-tab'); if (!b) return;
+  page = b.dataset.page; history.replaceState(null, '', page === 'dash' ? '#dashboard' : location.pathname + location.search);
+  applyPage(); window.scrollTo({ top: 0 });
+});
 async function onSession(session) {
   me = session ? session.user : null;
   if (!session) { leads = []; $('#who').textContent = ''; show('login'); return; }
@@ -681,3 +690,93 @@ function wirePasswordToggle(inputId, btnId) {
 }
 wirePasswordToggle('l-pass', 'l-pass-toggle');
 wirePasswordToggle('p-new', 'p-new-toggle');
+
+/* ---------- Dashboard ---------- */
+const SOURCES = { manual: 'Typed by hand', card: 'Business card', badge: 'Badge', qr: 'QR / e-contact' };
+let dashFairs = '';
+['#d-fair', '#d-owner'].forEach(s => $(s).addEventListener('change', renderDash));
+function tally(list, keyFn, top = 8) {
+  const m = new Map();
+  for (const l of list) { const k = keyFn(l); if (k) m.set(k, (m.get(k) || 0) + 1); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))).slice(0, top);
+}
+const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '–');
+function barList(rows) { // rows: [label, value, tooltip?]
+  if (!rows.length) return '<p class="chart-empty">No data yet.</p>';
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  return `<ul class="bars">${rows.map(([label, n, tip]) =>
+    `<li title="${esc(tip || `${label}: ${n}`)}"><span class="bl">${esc(label)}</span><span class="bt"><i style="width:${(n / max) * 100}%"></i></span><b>${n}</b></li>`).join('')}</ul>`;
+}
+function dayColumns(list, days = 14) {
+  const keyOf = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const counts = new Map(list.map(l => [keyOf(new Date(l.created_at)), 0]));
+  for (const l of list) { const k = keyOf(new Date(l.created_at)); counts.set(k, (counts.get(k) || 0) + 1); }
+  const cols = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    cols.push({ d, n: counts.get(keyOf(d)) || 0 });
+  }
+  const max = Math.max(...cols.map(c => c.n), 1);
+  return `<div class="cols" role="img" aria-label="Leads per day, last ${days} days">${cols.map(c =>
+    `<div class="c" title="${c.d.toLocaleDateString([], { day: 'numeric', month: 'short' })}: ${c.n}"><b>${c.n || ''}</b><i style="height:${(c.n / max) * 100}%;${c.n ? '' : 'min-height:2px;opacity:.25'}"></i><span>${c.d.getDate()}</span></div>`).join('')}</div>`;
+}
+function renderDash() {
+  if ($('#dash').hidden) return;
+  // fair filter: rebuild the options only when the list of fairs changed
+  const fairs = tally(leads, l => l.event, 50).map(f => f[0]);
+  const sig = fairs.join('|');
+  if (sig !== dashFairs) {
+    const cur = $('#d-fair').value;
+    $('#d-fair').innerHTML = '<option value="">All fairs</option>' + fairs.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+    $('#d-fair').value = fairs.includes(cur) ? cur : ''; dashFairs = sig;
+  }
+  const fair = $('#d-fair').value, own = $('#d-owner').value;
+  const L = leads.filter(l => (!fair || l.event === fair) && (!own || l.user_id === me?.id));
+  const n = f => L.filter(f).length;
+  const total = L.length, withEmail = n(l => l.email), emailed = n(l => l.sent_at), opened = n(l => l.open_count || l.click_count);
+  const clicked = n(l => l.click_count), replied = n(l => l.replied_at), problems = n(l => l.email_error && !l.sent_at);
+  const invSent = n(l => l.invite_sent_at), invDue = n(l => l.invite_affair && !l.invite_sent_at);
+  const tile = (v, label, sub) => `<div class="tile"><span class="tl">${label}</span><strong>${v}</strong><span class="ts">${sub || '&nbsp;'}</span></div>`;
+  $('#d-tiles').innerHTML = tile(total, 'Total leads', fair ? esc(fair) : 'All fairs')
+    + tile(withEmail, 'With email', pct(withEmail, total) + ' of leads')
+    + tile(emailed, 'Emails sent', pct(emailed, withEmail) + ' of leads with email')
+    + tile(opened, 'Opened', pct(opened, emailed) + ' of emailed')
+    + tile(clicked, 'Brochure opened', pct(clicked, emailed) + ' of emailed')
+    + tile(replied, 'Replied', pct(replied, emailed) + ' of emailed')
+    + tile(invSent, 'Affair invites sent', invDue ? `${invDue} scheduled` : 'Portuguese Affair')
+    + tile(problems, 'Email problems', problems ? 'Check the list' : 'None');
+  const card = (title, sub, body) => `<section class="chart-card"><h3>${title}</h3><p class="sub">${sub}</p>${body}</section>`;
+  const funnel = [['Leads', total], ['With email', withEmail], ['Emailed', emailed], ['Opened', opened], ['Brochure opened', clicked], ['Replied', replied]]
+    .map(([k, v]) => [k, v, `${k}: ${v} (${pct(v, total)} of all leads)`]);
+  $('#d-charts').innerHTML =
+    card('Leads by country', 'Top 8 markets', barList(tally(L, l => l.country || '(no country)')))
+    + card('Follow-up funnel', 'From lead to reply', barList(funnel))
+    + card('Leads by team member', 'Who scanned them', barList(tally(L, l => personName(l.user_id))))
+    + card(fair ? 'Leads per day' : 'Leads by fair', fair ? 'Last 14 days' : 'Top 8 fairs', fair ? dayColumns(L) : barList(tally(L, l => l.event || '(no fair)')))
+    + card('How leads were captured', 'Card, badge, QR or typed', barList(tally(L, l => SOURCES[l.source || 'manual'] || l.source, 6)))
+    + card('Follow-up language', 'Language of the emails', barList(tally(L, l => LANG_NAME(l.lang), 6)))
+    + (fair ? '' : card('Leads per day', 'Last 14 days', dayColumns(L)));
+}
+
+/* ---------- Enrich: company + person research for the notes ---------- */
+const ENRICH_PREFIX = ['LinkedIn (contact): ', 'LinkedIn (company): ', 'Revenue: ', 'Business area: '];
+$('#btn-enrich').addEventListener('click', async () => {
+  const btn = $('#btn-enrich'), notes = $('#f-notes');
+  const v = k => $('#f-' + k).value.trim();
+  if (!v('company') && !v('name')) { toast('Add a company or a name first.'); return; }
+  const domain = (v('email').split('@')[1] || '').toLowerCase();
+  btn.disabled = true; btn.textContent = '⏳ Researching…';
+  const r = await callFn('enrich-lead', {
+    name: v('name'), title: v('title'), company: v('company'), website: v('website'), country: v('country'),
+    email_domain: EmailCheck.check(v('email')).some(f => /Generic provider/.test(f.msg)) ? '' : domain,
+  });
+  btn.disabled = false; btn.textContent = '✨ Enrich';
+  if (r.error) { toast(r.error, 7000); return; }
+  const f = r.data || {};
+  const lines = [f.person_linkedin && ENRICH_PREFIX[0] + f.person_linkedin, f.company_linkedin && ENRICH_PREFIX[1] + f.company_linkedin,
+    f.revenue && ENRICH_PREFIX[2] + f.revenue, f.business_area && ENRICH_PREFIX[3] + f.business_area].filter(Boolean);
+  if (!lines.length) return; // nothing found: leave the notes untouched
+  const kept = notes.value.split('\n').filter(l => !ENRICH_PREFIX.some(p => l.startsWith(p) && lines.some(n => n.startsWith(p)))); // refresh only what was found again
+  notes.value = [...kept, ...lines].join('\n').trim();
+  notes.dispatchEvent(new Event('input', { bubbles: true }));
+});

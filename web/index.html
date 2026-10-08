@@ -23,6 +23,10 @@
         <button id="btn-out" class="btn btn-ghost">Sign out</button>
       </div></div>
     </div>
+    <nav id="nav" hidden class="max-w-6xl mx-auto px-4 flex gap-1" aria-label="Pages">
+      <button type="button" class="nav-tab" data-page="leads" aria-selected="true">Leads</button>
+      <button type="button" class="nav-tab" data-page="dash" aria-selected="false">Dashboard</button>
+    </nav>
   </header>
 
   <section id="login" class="max-w-sm mx-auto px-4 py-10">
@@ -97,7 +101,10 @@
         <div class="field sm:col-span-2">
           <div class="flex items-center justify-between">
             <label for="f-notes">Notes</label>
-            <button type="button" id="btn-dictate" class="dictate" hidden aria-pressed="false">🎤 Dictate</button>
+            <div class="flex gap-2">
+              <button type="button" id="btn-enrich" class="dictate" title="Searches the web for the company and the person: LinkedIn, revenue, business area">✨ Enrich</button>
+              <button type="button" id="btn-dictate" class="dictate" hidden aria-pressed="false">🎤 Dictate</button>
+            </div>
           </div>
           <textarea id="f-notes" rows="2" class="input" placeholder="Interested in…"></textarea>
           <p id="dictate-msg" class="text-xs text-muted" hidden></p>
@@ -143,6 +150,25 @@
         <tbody id="rows"></tbody>
       </table>
     </section>
+  </main>
+
+  <main id="dash" hidden class="max-w-6xl mx-auto px-4 py-5 space-y-5">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+      <div>
+        <p class="eyebrow">OVERVIEW</p>
+        <h2 class="text-2xl font-semibold tracking-tight">Leads dashboard</h2>
+        <p class="text-sm text-muted">Distribution by country, team member and follow-up status.</p>
+      </div>
+      <div class="flex gap-2">
+        <select id="d-fair" class="input sm:w-52" aria-label="Fair"></select>
+        <select id="d-owner" class="input sm:w-40" aria-label="Who scanned">
+          <option value="">Whole team</option>
+          <option value="me">Only mine</option>
+        </select>
+      </div>
+    </div>
+    <div id="d-tiles" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+    <div id="d-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
   </main>
 
   <dialog id="dlg">

@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.invites]
 verify_jwt = false
+
+[functions.enrich-lead]
+verify_jwt = false
