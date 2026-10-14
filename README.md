@@ -10,7 +10,7 @@ supabase/functions/       → funções no servidor (Supabase Edge Functions)
   send-email              → envia o email / lembrete pela conta Microsoft 365 do utilizador
   track                   → regista aberturas (imagem invisível) e cliques na brochura
   reminders               → de hora a hora: deteta respostas, envia lembretes, re-tenta Odoo
-  odoo-sync               → cria/atualiza empresa, contacto e oportunidade no Odoo
+  odoo-sync               → cria/atualiza empresa, contacto e lead no Odoo (separador Leads)
 ```
 
 **Os dados existentes não são tocados.** A migração 002 só acrescenta colunas/tabelas; nenhuma linha é apagada. Mesmo assim, antes de começar: Supabase → Table Editor → `leads` → Export → CSV (cópia de segurança).
@@ -80,11 +80,11 @@ Como funciona: o email sai da caixa de quem carrega em enviar e fica nos *Itens 
 Sobre as aberturas: são aproximadas. O Apple Mail pode marcar como aberto sem a pessoa ter lido, e o Outlook às vezes bloqueia imagens. O **clique na brochura** e a **resposta** são os sinais fiáveis.
 
 ## 6. Odoo
-1. No Odoo, com um utilizador que possa criar contactos e oportunidades no CRM: *Preferências → Segurança da conta → Nova chave API*.
+1. No Odoo, com um utilizador que possa criar contactos e leads no CRM: *Preferências → Segurança da conta → Nova chave API*.
 2. Secrets no Supabase: `ODOO_URL` (ex.: `https://byfoods.odoo.com`), `ODOO_DB` (nome da base de dados), `ODOO_USER` (login desse utilizador), `ODOO_API_KEY`.
-3. Opcional: em `web/config.js`, `ODOO_URL` para o selo "Odoo ✓" abrir a oportunidade.
+3. Opcional: em `web/config.js`, `ODOO_URL` para o selo "Odoo ✓" abrir a lead/oportunidade.
 
-Ao guardar um lead: procura/cria a **empresa**, procura (pelo email) ou cria o **contacto**, cria uma **oportunidade** no pipeline com a feira como etiqueta e o comercial como vendedor (se o email dele for um utilizador Odoo). Emails enviados, lembretes e respostas ficam como notas no histórico da oportunidade. Se falhar, aparece "Odoo ✗ retry" e o sistema tenta de novo de hora a hora.
+Ao guardar um lead: procura/cria a **empresa**, procura (pelo email) ou cria o **contacto**, cria uma **lead** no separador *Leads* do CRM (não no funil) com a feira como etiqueta e o comercial como vendedor (se o email dele for um utilizador Odoo). Emails enviados, lembretes e respostas ficam como notas no histórico da lead/oportunidade. Se falhar, aparece "Odoo ✗ retry" e o sistema tenta de novo de hora a hora.
 
 Usa a API JSON-RPC (`/jsonrpc`), disponível no Odoo 14 a 19.
 
