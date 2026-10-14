@@ -1,0 +1,95 @@
+diff --git a/README.md b/README.md
+index 3e71a06..341e74e 100644
+--- a/README.md
++++ b/README.md
+@@ -10,7 +10,7 @@ supabase/functions/       → funções no servidor (Supabase Edge Functions)
+   send-email              → envia o email / lembrete pela conta Microsoft 365 do utilizador
+   track                   → regista aberturas (imagem invisível) e cliques na brochura
+   reminders               → de hora a hora: deteta respostas, envia lembretes, re-tenta Odoo
+-  odoo-sync               → cria/atualiza empresa, contacto e oportunidade no Odoo
++  odoo-sync               → cria/atualiza empresa, contacto e lead no Odoo (separador Leads)
+ ```
+ 
+ **Os dados existentes não são tocados.** A migração 002 só acrescenta colunas/tabelas; nenhuma linha é apagada. Mesmo assim, antes de começar: Supabase → Table Editor → `leads` → Export → CSV (cópia de segurança).
+@@ -80,11 +80,11 @@ Como funciona: o email sai da caixa de quem carrega em enviar e fica nos *Itens
+ Sobre as aberturas: são aproximadas. O Apple Mail pode marcar como aberto sem a pessoa ter lido, e o Outlook às vezes bloqueia imagens. O **clique na brochura** e a **resposta** são os sinais fiáveis.
+ 
+ ## 6. Odoo
+-1. No Odoo, com um utilizador que possa criar contactos e oportunidades no CRM: *Preferências → Segurança da conta → Nova chave API*.
++1. No Odoo, com um utilizador que possa criar contactos e leads no CRM: *Preferências → Segurança da conta → Nova chave API*.
+ 2. Secrets no Supabase: `ODOO_URL` (ex.: `https://byfoods.odoo.com`), `ODOO_DB` (nome da base de dados), `ODOO_USER` (login desse utilizador), `ODOO_API_KEY`.
+-3. Opcional: em `web/config.js`, `ODOO_URL` para o selo "Odoo ✓" abrir a oportunidade.
++3. Opcional: em `web/config.js`, `ODOO_URL` para o selo "Odoo ✓" abrir a lead/oportunidade.
+ 
+-Ao guardar um lead: procura/cria a **empresa**, procura (pelo email) ou cria o **contacto**, cria uma **oportunidade** no pipeline com a feira como etiqueta e o comercial como vendedor (se o email dele for um utilizador Odoo). Emails enviados, lembretes e respostas ficam como notas no histórico da oportunidade. Se falhar, aparece "Odoo ✗ retry" e o sistema tenta de novo de hora a hora.
++Ao guardar um lead: procura/cria a **empresa**, procura (pelo email) ou cria o **contacto**, cria uma **lead** no separador *Leads* do CRM (não no funil) com a feira como etiqueta e o comercial como vendedor (se o email dele for um utilizador Odoo). Emails enviados, lembretes e respostas ficam como notas no histórico da lead/oportunidade. Se falhar, aparece "Odoo ✗ retry" e o sistema tenta de novo de hora a hora.
+ 
+ Usa a API JSON-RPC (`/jsonrpc`), disponível no Odoo 14 a 19.
+ 
+diff --git a/supabase/functions/_shared/odoo.ts b/supabase/functions/_shared/odoo.ts
+index e88e9b1..9f97520 100644
+--- a/supabase/functions/_shared/odoo.ts
++++ b/supabase/functions/_shared/odoo.ts
+@@ -1,5 +1,8 @@
+ // Odoo external API (JSON-RPC). Needs the secrets ODOO_URL, ODOO_DB, ODOO_USER, ODOO_API_KEY.
+-// Creates/updates: company (res.partner), contact person (res.partner), opportunity (crm.lead).
++// Creates/updates: company (res.partner), contact person (res.partner), lead (crm.lead, type 'lead').
++// New records go to the Leads tab in Odoo so the sales manager can review them and either delete them
++// or convert them to an opportunity. The type is only set on creation, so a lead that was already
++// converted is never turned back into a lead by a later re-sync.
+ import { admin, env, type Lead } from './util.ts';
+ 
+ export const odooReady = () => !!(env('ODOO_URL') && env('ODOO_DB') && env('ODOO_USER') && env('ODOO_API_KEY'));
+@@ -76,17 +79,18 @@ export async function syncLead(lead: Lead) {
+       owner && `Scanned by: ${owner.full_name || owner.email}`,
+       lead.notes && `Notes: ${lead.notes}`,
+     ].filter(Boolean).map(l => `<p>${esc(String(l))}</p>`).join('');
+-    const opp: Record<string, unknown> = {
++    const fields: Record<string, unknown> = {
+       name: [lead.company || lead.name, lead.event].filter(Boolean).join(' – '),
+-      type: 'opportunity', partner_id: partnerId, contact_name: lead.name, partner_name: lead.company || false,
++      partner_id: partnerId, contact_name: lead.name, partner_name: lead.company || false,
+       email_from: lead.email || false, phone: lead.phone || false, function: lead.title || false,
+       website: lead.website || false, street: lead.address || false, country_id: countryId || false,
+       description: note || false, ...(salesId ? { user_id: salesId } : {}),
+       ...(tagIds.length ? { tag_ids: [[6, 0, tagIds]] } : {}),
+     };
+     let oppId: number | null = lead.odoo_lead_id ?? null;
+-    if (oppId) await call('crm.lead', 'write', [[oppId], opp]);
+-    else oppId = await call('crm.lead', 'create', [opp]);
++    // 'type' only on creation: re-syncs must not undo a conversion lead -> opportunity done in Odoo
++    if (oppId) await call('crm.lead', 'write', [[oppId], fields]);
++    else oppId = await call('crm.lead', 'create', [{ ...fields, type: 'lead' }]);
+ 
+     const saved = { odoo_partner_id: partnerId, odoo_lead_id: oppId, odoo_synced_at: new Date().toISOString(), odoo_error: null };
+     await db.from('leads').update(saved).eq('id', lead.id);
+@@ -98,7 +102,7 @@ export async function syncLead(lead: Lead) {
+   }
+ }
+ 
+-// Adds a note to the opportunity's history (best effort: never breaks the caller).
++// Adds a note to the lead/opportunity's history (best effort: never breaks the caller).
+ export async function odooNote(lead: Lead, text: string) {
+   if (!odooReady() || !lead.odoo_lead_id) return;
+   try {
+diff --git a/supabase/functions/odoo-sync/index.ts b/supabase/functions/odoo-sync/index.ts
+index 8b13697..6e592c3 100644
+--- a/supabase/functions/odoo-sync/index.ts
++++ b/supabase/functions/odoo-sync/index.ts
+@@ -1,4 +1,4 @@
+-// Creates (or updates) a lead in Odoo: company + contact + CRM opportunity. Body: { lead_id }
++// Creates (or updates) a lead in Odoo: company + contact + CRM lead (Leads tab). Body: { lead_id }
+ import { admin, callerOf, cors, json } from '../_shared/util.ts';
+ import { odooReady, syncLead } from '../_shared/odoo.ts';
+ 
+diff --git a/web/config.js b/web/config.js
+index e47f2fe..9a9706b 100644
+--- a/web/config.js
++++ b/web/config.js
+@@ -1,5 +1,5 @@
+ window.CONFIG = {
+   SUPABASE_URL: 'https://zmkgmebzeagtdxhdiyuo.supabase.co',
+   SUPABASE_ANON_KEY: 'sb_publishable_LbIbJ_H8xhd3P7AHwmpVKw_IxslKXAo', // public key: safe to be in the browser
+-  ODOO_URL: '' // optional, e.g. 'https://byfoods.odoo.com' — makes the "Odoo ✓" badge a link to the opportunity
++  ODOO_URL: '' // optional, e.g. 'https://byfoods.odoo.com' — makes the "Odoo ✓" badge a link to the lead/opportunity
+ };
