@@ -1,4 +1,4 @@
-// Creates (or updates) a lead in Odoo: company + contact + CRM opportunity. Body: { lead_id }
+// Creates (or updates) a lead in Odoo: company + contact + CRM lead (Leads tab). Body: { lead_id }
 import { admin, callerOf, cors, json } from '../_shared/util.ts';
 import { odooReady, syncLead } from '../_shared/odoo.ts';
 
