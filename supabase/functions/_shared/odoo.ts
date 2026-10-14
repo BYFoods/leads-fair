@@ -1,5 +1,8 @@
 // Odoo external API (JSON-RPC). Needs the secrets ODOO_URL, ODOO_DB, ODOO_USER, ODOO_API_KEY.
-// Creates/updates: company (res.partner), contact person (res.partner), opportunity (crm.lead).
+// Creates/updates: company (res.partner), contact person (res.partner), lead (crm.lead, type 'lead').
+// New records go to the Leads tab in Odoo so the sales manager can review them and either delete them
+// or convert them to an opportunity. The type is only set on creation, so a lead that was already
+// converted is never turned back into a lead by a later re-sync.
 import { admin, env, type Lead } from './util.ts';
 
 export const odooReady = () => !!(env('ODOO_URL') && env('ODOO_DB') && env('ODOO_USER') && env('ODOO_API_KEY'));
@@ -76,17 +79,18 @@ export async function syncLead(lead: Lead) {
       owner && `Scanned by: ${owner.full_name || owner.email}`,
       lead.notes && `Notes: ${lead.notes}`,
     ].filter(Boolean).map(l => `<p>${esc(String(l))}</p>`).join('');
-    const opp: Record<string, unknown> = {
+    const fields: Record<string, unknown> = {
       name: [lead.company || lead.name, lead.event].filter(Boolean).join(' – '),
-      type: 'opportunity', partner_id: partnerId, contact_name: lead.name, partner_name: lead.company || false,
+      partner_id: partnerId, contact_name: lead.name, partner_name: lead.company || false,
       email_from: lead.email || false, phone: lead.phone || false, function: lead.title || false,
       website: lead.website || false, street: lead.address || false, country_id: countryId || false,
       description: note || false, ...(salesId ? { user_id: salesId } : {}),
       ...(tagIds.length ? { tag_ids: [[6, 0, tagIds]] } : {}),
     };
     let oppId: number | null = lead.odoo_lead_id ?? null;
-    if (oppId) await call('crm.lead', 'write', [[oppId], opp]);
-    else oppId = await call('crm.lead', 'create', [opp]);
+    // 'type' only on creation: re-syncs must not undo a conversion lead -> opportunity done in Odoo
+    if (oppId) await call('crm.lead', 'write', [[oppId], fields]);
+    else oppId = await call('crm.lead', 'create', [{ ...fields, type: 'lead' }]);
 
     const saved = { odoo_partner_id: partnerId, odoo_lead_id: oppId, odoo_synced_at: new Date().toISOString(), odoo_error: null };
     await db.from('leads').update(saved).eq('id', lead.id);
@@ -98,7 +102,7 @@ export async function syncLead(lead: Lead) {
   }
 }
 
-// Adds a note to the opportunity's history (best effort: never breaks the caller).
+// Adds a note to the lead/opportunity's history (best effort: never breaks the caller).
 export async function odooNote(lead: Lead, text: string) {
   if (!odooReady() || !lead.odoo_lead_id) return;
   try {
